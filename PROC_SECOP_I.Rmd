@@ -1,0 +1,1417 @@
+---
+title: "Limpieza de la base de datos SECOP I para IPS Públicas"
+author: "Yilber Erazo - Geraldine Camacho"
+output:
+  html_document:
+    df_print: paged
+---
+
+# 1.CONFIGURACION DEL DIRECTORIO DE TRABAJO, CARGAR LIBERIÍAS Y CARGAR DATOS
+```{r}
+#setwd("~/Google Drive/Doctorado/Corrupción en Salud/Investigacion")
+library(tidyverse)
+library(lubridate)
+library(knitr)
+library(plotly)
+library(DT)
+library(data.table)
+library(lubridate)
+library(tidyr)
+library(stringr)
+library(e1071)
+library(dplyr)
+library(fitdistrplus)
+library(rgdal)
+#install.packages("dygraphs")
+library(dygraphs)
+
+##Algunas de Graficas
+library(sp)
+library(RColorBrewer)
+library(ggplot2)
+library(maptools)
+library(scales)
+library(rgdal)
+library(highcharter)
+
+ 
+opts_chunk$set(warning = FALSE, message = FALSE)
+#DS <- fread("C:\\Users\\Yerazo\\Documents\\SIGMAP\\Proyecto\\SECOP_I.csv", encoding = "UTF-8")
+```
+
+Lee base de datos
+```{r}
+SECOP_I <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\Documents\\SIGMAP\\Proyecto\\SECOP_I_SFF.csv",delim = ";")
+```
+
+Leer ICFES
+```{r}
+ICFES11 <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\SIGMAP\\Proyecto\\Saber_11__2018-2.csv",delim = ",")
+```
+
+Leer archivo id de los departamentos
+```{r}
+departamentos <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\SIGMAP\\Proyecto\\departamentos.csv",delim = "|")
+```
+
+Leer datos de participación ciudadana y acceso, transparencia, lucha contra corrupción
+```{r}
+participacion<-read_delim(file = "C:\\Users\\Yerazo\\Documents\\SIGMAP\\Proyecto\\DEPTOPARTICIPACIONCIUDADANACSV.csv", delim = ";")
+```
+
+```{r}
+Objeto %>% arrange(total) %>% 
+  mutate(objeto_contratar=factor(objeto_contratar, levels=objeto_contratar))%>% 
+           ggplot( aes(x=objeto_contratar, y=total)) +
+           geom_segment( aes(xend=objeto_contratar, yend=0)) +
+           geom_point( size=4, color="orange") +
+           coord_flip() + theme_bw() + xlab("")
+         
+#rlang::last_error()         
+```
+
+# 2.LIMPIEZA
+## Renombrar las columnas y quitar registros repetidos
+```{r}
+SECOP_I <- distinct(SECOP_I)
+nombres = c("UID","anno_cargue","anno_firma","nivel_entidad","orden_entidad",
+            "nombre_entidad","NIT_entidad","cod_entidad","ID_tipo_proceso",
+            "tipo_proceso","estado_proceso","causal_cont_direct","ID_reg_contrat",
+            "regimen_contratacion","ID_objeto","objeto_contratar","detalle_objeto",
+            "tipo_contrato","municipio_obtencion","municipio_entrega",
+            "municipio_ejecucion","fecha_cargue","numero_constancia","numero_proceso",
+            "numero_contrato","valor_estimado","ID_grupo","nombre_grupo","ID_familia",
+            "nombre_familia","ID_clase","nombre_clase","ID_adjudicacion",
+            "tipo_id_contratista","id_contratista","contratista","departamento_contratista",
+            "tipo_id_rep_legal","id_rep_legal","nombre_rep_legal","fecha_firma",
+            "fecha_ini_ejec","plazo_ejec","rango_ejec","adiciones_dias","adiciones_meses",
+            "fecha_fin_ejec","compromiso_presupuestal","valor_inicial","valor_adiciones",
+            "valor_total","objeto_contrato_firma","ID_origen_recursos","origen_recursos",
+            "codigo_BPIN","proponentes_selecc","calificacion_definitiva","ID_sub_unid_ejec",
+            "nombre_sub_unid_ejec","moneda","post_conflicto","ruta_web")
+names(SECOP_I) <- nombres
+```
+
+Se filtran los datos de los años 2014 en adelante
+```{r}
+SECOP_I <- SECOP_I %>% filter((anno_cargue >=2014 & anno_firma>=2014))
+```
+
+Inicialmente se tienen `r dim(SECOP_I)[1]` contratos.
+
+```{r}
+SECOP_I %>% group_by(regimen_contratacion) %>% summarise(Total = n()) 
+```
+
+```{r}
+SECOP_I %>% filter(regimen_contratacion == "Estatuto General de Contratación")
+```
+
+```{r}
+ent_reg <- SECOP_I %>% 
+  group_by(nombre_entidad,regimen_contratacion) %>% 
+  summarise(Total = n()) %>% 
+  filter(regimen_contratacion == "Régimen Especial")
+ent_reg
+```
+
+
+```{r}
+ent_solo_ley80 <- all_ent %>% filter(!all_ent$nombre_entidad %in% ent_reg$nombre_entidad) %>% arrange(desc(Total))
+ent_solo_ley80
+```
+
+
+```{r}
+SECOP_I %>% filter(tipo_contrato == "Prestación de Servicios") 
+```
+
+## Sacar los NAs de plazo_ejec_calculado por no tener adjudicacion
+
+```{r}
+SECOP_I$fecha_fin_ejec <- dmy(SECOP_I$fecha_fin_ejec)
+SECOP_I$fecha_ini_ejec <- dmy(SECOP_I$fecha_ini_ejec)
+SECOP_I$plazo_ejec_calc <- SECOP_I$fecha_fin_ejec - SECOP_I$fecha_ini_ejec
+SECOP_I$plazo_ejec_calc <- as.integer(SECOP_I$plazo_ejec_calc)
+SECOP_I <- SECOP_I %>% filter(!is.na(plazo_ejec_calc))
+```
+
+Al quitar los datos faltantes en el plazo de ejecución se tienen `r dim(SECOP_I)[1]` contratos.
+
+```{r}
+summary(SECOP_I$plazo_ejec_calc)
+```
+
+Hay contratos que tienen mas de 4 años en plazo de ejecución. **¿Se deben considerar?**
+
+```{r}
+sum(SECOP_I$plazo_ejec_calc >= (365*4))
+```
+
+Se verifica la diferencia entre el plazo de ejecución calculado y el plazo de ejecución registrado
+
+```{r}
+SECOP_I <- SECOP_I %>% 
+  mutate(plazo_ejec_dias = case_when(
+    rango_ejec == "D" ~ plazo_ejec, 
+    rango_ejec == "M" ~ plazo_ejec*30
+  ))
+```
+
+
+```{r}
+dif_plazo <- SECOP_I$plazo_ejec_dias-SECOP_I$plazo_ejec_calc
+summary(dif_plazo)
+```
+
+
+```{r}
+ggplot(data = data.frame(dif = dif_plazo), aes(x = log(dif))) + geom_histogram()
+```
+
+```{r}
+#as.numeric(SECOP_I$valor_total)
+sum(SECOP_I$valor_total)
+sum(SECOP_I$valor_adiciones)
+sum(SECOP_I$valor_inicial)
+sum(SECOP_I$valor_estimado)
+```
+
+## Convenios interadministativos
+
+```{r}
+SECOP_I = SECOP_I %>%
+  filter(!(str_detect(str_to_lower(detalle_objeto),"aunar esfuerzos") |
+           str_detect(str_to_lower(detalle_objeto),"anuar esfuerzos") |
+           str_detect(str_to_lower(detalle_objeto),"aunar espuerzos")))
+
+Conv_inter = SECOP_I %>%
+  filter((str_detect(str_to_lower(detalle_objeto),"aunar esfuerzos") |
+           str_detect(str_to_lower(detalle_objeto),"anuar esfuerzos") |
+           str_detect(str_to_lower(detalle_objeto),"aunar espuerzos"))) %>% 
+  dplyr::select(UID,detalle_objeto)
+
+```
+
+Al quitar los convenios interadministrativos quedan `r dim(SECOP_I)[1]`
+## Contratos asociados a transacciones bancarias
+En primer lugar se retiran contratos asociados a: 
+- Crédito
+- Fiducia
+- Comodato
+- Arrendamiento
+```{r}
+SECOP_I$tipo_contrato <- as.factor(SECOP_I$tipo_contrato)
+SECOP_I <- SECOP_I %>% 
+  filter(!(tipo_contrato == "Crédito" | tipo_contrato == "Fiducia" | 
+             tipo_contrato == "Comodato" | tipo_contrato == "Arrendamiento"))
+```
+
+Retirar contratos que hablen de emprestito
+
+```{r}
+SECOP_I <- SECOP_I %>% 
+  filter(!(str_detect(str_to_lower(detalle_objeto),"empréstito") |
+            str_detect(str_to_lower(detalle_objeto),"emprestito") |
+            str_detect(str_to_lower(detalle_objeto),"empresito")))
+```
+
+## Depura registros donde año de cargue > año de firma
+
+Se retiran los contratos que no registran año de firma
+
+```{r}
+SECOP_I <- SECOP_I %>% filter(!(is.na(anno_firma)))
+```
+
+Ahora se retiran contratos donde año de cargue > año de firma
+
+```{r}
+fecha_mal <- SECOP_I %>% filter(anno_cargue > anno_firma)
+sum(fecha_mal$valor_total)
+```
+
+Con este filtro se retiran `r dim(fecha_mal)[1]` contratos que suman un valor total de 2.5 Billones.
+
+```{r}
+SECOP_I <- SECOP_I %>% filter(!(anno_cargue > anno_firma))
+```
+
+Escribir la base de datos
+
+```{r}
+fwrite(SECOP_I, file = "SECOP_IPS_LIMPIA.csv", sep = ";", row.names = FALSE)
+```
+
+
+```{r}
+fwrite(Proporcion_Directa_Depto, file = "DEPTOPARTICIPACIONCIUDADANA.csv", sep = ";", row.names = FALSE)
+```
+
+Revisar el valor de contratos altos valores. Los dos primeros tienen error en sus cuantias.
+
+```{r}
+datatable(head(SECOP_I, n = 200))
+```
+Escribir la base de datos
+
+```{r}
+SECOP_I <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\Documents\\SIGMAP\\Proyecto\\SECOP_IPS_LIMPIA.csv",delim = ";")
+```
+Convertir SECOP_I en data table
+```{r}
+DT<- as.data.table(SECOP_I)
+```
+
+## EXTRAER LOS DEPARTAMENTOS Y LOS MUNICIPIOS DE CADA CONTRATO
+```{r}
+{# Extraer departamento----
+  # Con este parte del codigo extraigo el departamento de ejecuciÃ³n
+  depto_entidad <- str_sub(string = DT$municipio_ejecucion, 
+               start = 1L, 
+               end = str_locate(string = DT$municipio_ejecucion, pattern = "-")[,1]-2)
+}
+
+
+{# Extraer el municipio----
+  # Con este parte del codigo extraigo el municipio de ejecuciÃ³n
+  mun_entidad <- str_sub(string = DT$municipio_ejecucion, 
+               start = str_locate(string = DT$municipio_ejecucion, pattern = "-")[,1]+2, 
+               end = -1L)
+}
+
+{# Se agregan las nuevas columnas----
+  # Con este codigo se agregan las nuevas columnas de departamento y municipio
+  DT$municipio_ejecucion <- mun_entidad
+  DT$departamento_ejecucion <- depto_entidad
+}
+```
+
+Pasar departamentos y municipios de DT a mayúscula
+```{r}
+DT$departamento_ejecucion<-str_to_upper(DT$departamento_ejecucion, locale = "es")
+DT$municipio_ejecucion<-str_to_upper(DT$municipio_ejecucion, locale = "es")
+```
+
+Pasar las tildes a las no tildes (áéíóú) -> (aeiou)
+```{r}
+DT$departamento_ejecucion<-chartr('ÁÉÍÓÚ','AEIOU',DT$departamento_ejecucion)
+DT$municipio_ejecucion<-chartr('ÁÉÍÓÚ','AEIOU',DT$municipio_ejecucion)
+```
+
+## Ordenar por valor de contrato y analizar si puede existir alguno erroneo
+
+```{r}
+DT %>%  summarise(ValorContratos= sum(valor_adiciones))
+DT %>%  summarise(ValorContratos= sum(valor_inicial))
+DT %>%  summarise(ValorContratos= sum(valor_total))
+```
+
+```{r}
+DT %>%  filter(valor_total>=1000000000000) %>%  group_by(tipo_proceso) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) )
+```
+```{r}
+DT %>%  filter(valor_inicial >=1000000000000) %>%  group_by(tipo_proceso) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_inicial), ValorAdiciones = sum(valor_adiciones) )
+```
+```{r}
+DT %>%  filter(valor_adiciones >=1000000000000) %>%  group_by(tipo_proceso) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_adiciones), ValorAdiciones = sum(valor_adiciones) )
+```
+
+
+```{r}
+DT %>% group_by(estado_proceso) %>% summarise(Total=n(), Valores=sum(valor_total))
+```
+
+## VER VALORES DE SÓLO CONTRATACIÓN DIRECTA QUE SUPERAN EL BILLON DE PESOS, EN valor_total y valor_adiciones 
+
+Ver valores de contratación directa de forma general ANTES DE LIMPIAR LOS VALORES
+```{r}
+DT  %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%  summarise(
+VInicial=sum(valor_inicial), VTotal=sum(valor_total), VAdiciones=sum(valor_adiciones))
+```
+
+Cuántos contratos por CONTRATACIÓN DIRECTA superan el billón de pesos???? 
+EL PIB SE COLOMBIA ES SÓLO DE 1*10^16
+```{r}
+datatable(DT %>%  filter(valor_total>=1000000000000) %>%  group_by(anno_firma) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) ))
+```
+CAUSAL CONTRATACIÓN DIRECTA
+```{r}
+datatable(DT %>%  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & valor_total>=1000000000000) %>%  group_by(causal_cont_direct) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones)) )
+```
+
+## REEMPLAZAR LOS VALORES DEL CONTRATO
+Ver cada uno de esos datos que superan el billón de pesos
+```{r}
+SuperBillonTotal<- DT %>%  filter(valor_total>=1000000000000)
+```
+Reemplazar
+```{r}
+#SACADOS CON VALOR TOTAL 
+DT[UID == "17-12-6670053-6063825", valor_inicial:=1568000]
+DT[UID == "17-12-6675415-6068402", valor_inicial:= 598677400]
+DT[UID == "17-12-6711598-6102649", valor_inicial:=467000000]
+DT[UID == "17-12-7108735-6458288", valor_inicial:=558955730]
+DT[UID == "17-12-7466325-6788741", valor_inicial:=8348000]
+DT[UID == "16-4-4869561-4466942", valor_inicial:=1934000000]
+DT[UID == "17-4-6016257-5478092", valor_inicial:=6204000000]
+DT[UID == "17-4-6028546-5987469", valor_inicial:=736000000]
+DT[UID == "17-4-6080161-5535966", valor_inicial:=1280000000]
+DT[UID == "17-4-6036938-5496820", valor_inicial:=714000000]
+DT[UID == "17-4-6036948-5496833", valor_inicial:=1596000000]
+DT[UID == "17-4-6036968-5496859", valor_inicial:=864000000]
+DT[UID == "17-4-6037903-5599229", valor_inicial:=1155000000]
+DT[UID == "17-4-6112261-5563538", valor_inicial:=10960000000]
+DT[UID == "16-4-5305964-4840365", valor_inicial:=1564000000]
+DT[UID == "17-4-6117475-5567756", valor_inicial:=950000000]
+DT[UID == "17-4-6118453-5568657", valor_inicial:=376711665]
+DT[UID == "17-4-6156034-5600517", valor_inicial:=2176000000]
+DT[UID == "17-4-6156095-5600604", valor_inicial:=6745000000]
+DT[UID == "17-4-6163590-5735265", valor_inicial:=1417500]
+DT[UID == "16-4-5414665-4940436", valor_inicial:=1145000000]
+DT[UID == "17-4-6241617-5887519", valor_inicial:=690000000]
+DT[UID == "17-4-6241642-5887568", valor_inicial:=1110000000]
+DT[UID == "17-4-6199325-5791779", valor_inicial:=1795000000]
+DT[UID == "17-4-6253965-5688643", valor_inicial:=813000000]
+DT[UID == "17-4-6354435-6392483", valor_inicial:=16285000]
+#DT[UID == "17-4-6357142-5781633", valor_inicial:= ]
+```
+Por valor de adiciones superan el billon de pesos
+```{r}
+SuperBillonAdiciones<- DT %>%  filter( valor_adiciones >=1000000000000)
+```
+Reemplazqar
+```{r}
+DT[UID == "17-12-7108735-6458288", valor_adiciones:=426380000000]
+DT[UID == "18-12-7977946-7343384", valor_adiciones:=1724000000]
+DT[UID == "17-4-6080161-5535966", valor_adiciones:=1769000000]
+DT[UID == "17-4-6117475-5567756", valor_adiciones:=123225000000]
+DT[UID == "17-4-6118453-5568657", valor_adiciones:=100026000000]
+DT[UID == "17-4-6163362-5607263", valor_adiciones:=1085000000]
+DT[UID == "17-4-6318654-5747921", valor_adiciones:=1562000000]
+DT[UID == "17-4-6607055-6005644", valor_adiciones:=2646000000]
+DT[UID == "17-4-6702707-6094117", valor_adiciones:=2335000000]
+DT[UID == "17-4-6746778-6135273", valor_adiciones:=1338000000]
+DT[UID == "17-4-6755928-6771928", valor_adiciones:=922200000]
+DT[UID == "17-4-6755928-6800781", valor_adiciones:=922200000]
+DT[UID == "17-4-6953524-6315219", valor_adiciones:=2098000000]
+DT[UID == "17-4-7067516-6421015", valor_adiciones:=187000000]
+DT[UID == "17-4-7101516-6643423", valor_adiciones:=2364000000]
+DT[UID == "17-4-7189492-6532235", valor_adiciones:=2259000000]
+DT[UID == "17-4-7181360-6632666", valor_adiciones:=1062000000]
+DT[UID == "18-4-7741064-7029904", valor_adiciones:=2447000000]
+DT[UID == "18-4-7652288-6952405", valor_adiciones:=1394000000]
+DT[UID == "18-4-7811957-7091707", valor_adiciones:=1596000000]
+DT[UID == "18-4-7870862-7240535", valor_adiciones:=1043000000]
+DT[UID == "18-4-7843312-7204363", valor_adiciones:=1658000000]
+DT[UID == "18-4-7916801-7188496", valor_adiciones:=1308000000]
+DT[UID == "18-4-8129098-7387637", valor_adiciones:=3262000000]
+DT[UID == "18-12-8004890-7343372", valor_adiciones:=1905000000]
+DT[UID == "17-4-6975380-6335449", valor_adiciones:=9210000000]
+DT[UID == "18-4-7484003-7192424", valor_adiciones:=1412000000]
+DT[UID == "15-1-151222-4199167", valor_adiciones:=11794000000]
+DT[UID == "15-12-3462893-3266845", valor_adiciones:=3805000000]
+DT[UID == "15-12-4302953-3965909", valor_adiciones:=1127000000]
+DT[UID == "18-4-7597534-7274903", valor_adiciones:=3250000000]
+DT[UID == "18-4-8169645-7428175", valor_adiciones:=4175000000]
+DT[UID == "15-4-3814667-3558609", valor_adiciones:=1204000000]
+DT[UID == "15-4-3859249-3595501", valor_adiciones:=157590000000]
+DT[UID == "15-4-3883501-3615240", valor_adiciones:=2912000000]
+DT[UID == "15-4-4502314-4134631", valor_adiciones:=1153000000]
+DT[UID == "16-17-5739502-5451158", valor_adiciones:=3578000000]
+DT[UID == "16-4-5104616-4843916", valor_adiciones:=18055000000]
+DT[UID == "16-4-5182328-4731169", valor_adiciones:=1136000000]
+DT[UID == "16-4-5814376-5298618", valor_adiciones:=2834000000]
+DT[UID == "15-4-3430927-3236275", valor_adiciones:=8733000000]
+DT[UID == "14-1-126700-3290677", valor_adiciones:=8733000000]
+DT[UID == "16-4-5401622-4929045", valor_adiciones:=1062000000]
+DT[UID == "14-17-3085059-5358338", valor_adiciones:=1757000000]
+DT[UID == "14-4-2242396-2102924", valor_adiciones:=1684000000]
+DT[UID == "17-1-173777-6263386", valor_adiciones:=2064000000]
+DT[UID == "16-4-5104616-5795571", valor_adiciones:=24614000000]
+DT[UID == "18-12-7828581-7106334", valor_adiciones:=20000000000]
+```
+
+```{r}
+DT[UID == "17-12-7108735-6458288",]
+datatable(DT %>% group_by(contratista) %>% summarise(Total= n()))
+```
+PUESTO QUE LOS CONTRATOS NO APARENTAN SER DE CONTRATOS SENCILLOS, SE PODRÍA INFERIR QUE LAS ELEVADAS CIFRAS EN EL VALOR DE LOS CONTRATOS Y EN EL VALOR DE LAS ADICIONES SE PUEDE DEBER A ERRORES DE DIGITACIÓN
+
+# 3.CARACTERIZACIÓN ENTIDADES CONTRATANTES (HOSPITALES)
+```{r}
+DT  %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%  summarise(
+sum(valor_total))
+```
+
+## GENERAL CON CONTRATACIÓN DIRECTA Y DEMÁS (nota: LO QUE NO SEA POR CONTRATACIÓN DIRECTA NO TIENE LIMPIOS LOS DATOS DE LOS VALORES DE LOS CONTRATOS)
+Valor de cada año, por valor de contrato y por valor de adiciones
+```{r}
+DT %>% group_by(anno_firma) %>% summarise(Cantidad_Contratos=n(), ValorContratos = sum(valor_total) , ValorAdiciones=sum(valor_adiciones)) 
+```
+## CONTRATACIÓN DIRECTA Y DEMÁS
+### Por entidades 
+```{r}
+ResumenGen<-DT %>%
+  group_by(nombre_entidad) %>%
+  summarise(CantContratos=n(),Plazo=mean(plazo_ejec),VTotal=sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/VTotal)*100, PomedioValor=mean(valor_total))
+```
+
+### Por entidades y tipo de proceso
+```{r}
+ResGen_ToProce<-DT %>%
+  group_by(nombre_entidad,tipo_proceso) %>%
+  summarise(Plazo=mean(plazo_ejec),VTotal=sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/VTotal)*100)
+```
+
+### Grupos de objeto a contratar
+```{r}
+gruposGen <- DT %>% 
+  group_by(nombre_grupo) %>% 
+  summarise(Total = n(), Valor = sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100) %>% 
+  arrange(desc(nombre_grupo))
+grupos_Gen_Obj_contr <- DT %>% 
+  group_by(nombre_grupo,objeto_contratar) %>% 
+  summarise(Total = n(), Valor = sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100) %>% 
+  arrange(desc(nombre_grupo))
+```
+
+### Lugares (Departamentos)
+```{r}
+DeptosG <- DT %>% group_by(departamento_ejecucion) %>% 
+  summarise(Total = n(), Valor = sum(valor_total), VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100, PomedioValor=mean(valor_total))
+```
+
+### Serie de tiempo
+```{r}
+#Convertir la columna de tipo caracter a tipo fecha d/m/y
+DT$fecha_firma <- dmy(DT$fecha_firma)
+
+#Crear tabla con los datos que se necesitan
+contratos_mes <- DT %>% 
+  group_by(year(fecha_firma), month(fecha_firma)) %>% 
+  summarise(total = n()) 
+
+names(contratos_mes) <- c("anno", "mes", "total")
+
+contratos_mes$fecha = NA
+
+#Ajustar la tabla a formato necesario para la gráfica
+for(i in 1:nrow(contratos_mes)){
+  contratos_mes[i,4] = paste("01",contratos_mes[i,2], contratos_mes[i,1], sep = "-")
+}
+
+contratos_mes$fecha <- dmy(contratos_mes$fecha)
+
+#Generar gráficos
+p1 <- ggplot(contratos_mes, aes(x = fecha, y = total)) + geom_line() + theme(axis.text.x = element_text(angle = 45)) + scale_x_date(date_breaks = "1 year", date_labels = "%b %y", minor_breaks = as.Date("2017-01-02")) 
+  #geom_vline(xintercept = as.Date("2017-10-01"),color="red")
+ggplotly(p1)
+
+ggsave(filename = "linea_tiempo.png",plot = p1,device = "png")
+```
+
+## CONTRATACIÓN DIRECTA
+
+### Por entidades
+```{r}
+ResumenGDirecta<-DT %>% filter(DT$tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(nombre_entidad) %>%
+  summarise(CantContratos=n(),Plazo=mean(plazo_ejec),VTotal=sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/VTotal)*100, PomedioValor=mean(valor_total)) 
+```
+
+PROPORCIÓN DE CONTRATOS DIRECTOS POR ENTIDAD
+```{r}
+TotalContratos_Entidad <- DT %>% group_by(nombre_entidad) %>% summarise(CantContratos=n()) 
+TotalContratos_Directos <- DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% group_by(nombre_entidad) %>% summarise(ContratosDirectos=n())
+Directa_Entidad <- merge(TotalContratos_Entidad,TotalContratos_Directos, by.x = "nombre_entidad", by.y = "nombre_entidad")
+
+#TotalContratos_Entidad$Directos  <- ifelse(TotalContratos_Directos$nombre_entidad %in% TotalContratos_Entidad$nombre_entidad, 1, NA)
+#Proporcion_Directa_Entidad <- cbind(TotalContratos_Entidad$CantContratos:TotalContratos_Directos$Total)
+```
+
+Cálculo de proporción de contratación directa por cada entidad
+```{r}
+PorpContratosDirectos <-Directa_Entidad %>%  group_by(nombre_entidad) %>%  summarise(Proporcion=(ContratosDirectos/CantContratos)*100)
+```
+
+Unir las 3 columnas en una sola tabla, cantidad de contratos, contratos directos y la proporción de contratos directos
+```{r}
+Proporcion_Directa_Entidad<- merge(Directa_Entidad,PorpContratosDirectos, by.x = "nombre_entidad", by.y = "nombre_entidad")
+```
+
+Añadir la proporción de adciones
+```{r}
+Proporcion_Directa_Entidad<- merge(Proporcion_Directa_Entidad,ResumenGDirecta, by.x = "nombre_entidad", by.y = "nombre_entidad")
+```
+
+pasar proporcion de entidades a numérico
+```{r}
+as.numeric(Proporcion_Directa_Entidad$PropAdiciones)
+```
+
+COMPROBAR LA NORMALIDAD PARA VER QUÉ ANALISIS DE CORRELACIÓN HACER
+```{r}
+shapiro.test(Proporcion_Directa_Entidad$CantContratos.x)
+shapiro.test(Proporcion_Directa_Entidad$Proporcion)
+shapiro.test(Proporcion_Directa_Entidad$PropAdiciones)
+```
+ p < 0.05 por lo que podemos indicar que tenemos una distribución que no es normal= Puesto que ninguna de las 3 variables sigue una distribución normal, se procede a realizar el análisis de correlación de Spearman.
+
+ANALIZAR LAS CORRELACIONES EXISTENTES ENTRE ELLAS (SPEARMAN)
+```{r}
+cor(Proporcion_Directa_Entidad[,2:9], method = "spearman")
+cor.test(Proporcion_Directa_Entidad$CantContratos.x, Proporcion_Directa_Entidad$Proporcion, method = "spearman")
+cor.test(Proporcion_Directa_Entidad$Proporcion, Proporcion_Directa_Entidad$PropAdiciones,method = "spearman")
+```
+
+Por entidades y nombre de grupo 
+```{r}
+ResumenGDirectaNG<-DT %>%
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(nombre_entidad,nombre_grupo) %>% 
+  summarise(CantContratos=n(),Plazo=mean(plazo_ejec),VTotal=sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/VTotal)*100, PomedioValor=mean(valor_total))
+```
+
+### Grupos de objeto a contratar
+```{r}
+gruposDirecta <- DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(nombre_grupo) %>% 
+  summarise(Total = n(), Valor = sum(valor_total), VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100, PomedioValor=mean(valor_total)) %>% 
+  arrange(desc(nombre_grupo))
+
+gruposDirectaNgObj <- DT %>% 
+  group_by(nombre_grupo,objeto_contratar) %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  summarise(Total = n(), Valor = sum(valor_total), VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100, PomedioValor=mean(valor_total)) %>% 
+  arrange(desc(nombre_grupo))
+
+gruposDirectaObj <- DT %>% 
+  group_by(objeto_contratar) %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  summarise(Total = n(), Valor = sum(valor_total), VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100, PomedioValor=mean(valor_total))
+```
+
+
+### Lugares 
+DEPARTAMENTOS
+```{r}
+DeptosDirecta <- DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% group_by(departamento_ejecucion) %>% 
+  summarise(Total = n(), Valor = sum(valor_total), VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100, PomedioValor=mean(valor_total))
+```
+
+PROPORCIÓN DE CONTRATOS DIRECTOS POR DEPARTAMENTO
+```{r}
+TotalContratos_Depto <- DT %>% group_by(departamento_ejecucion) %>% summarise(CantContratos=n()) 
+TotalContratos_Direct_Depto <- DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% group_by(departamento_ejecucion) %>% summarise(ContratosDirectos=n())
+Directa_Deptos <- merge(TotalContratos_Depto,TotalContratos_Direct_Depto, by.x = "departamento_ejecucion", by.y = "departamento_ejecucion")
+
+#TotalContratos_Entidad$Directos  <- ifelse(TotalContratos_Directos$nombre_entidad %in% TotalContratos_Entidad$nombre_entidad, 1, NA)
+#Proporcion_Directa_Entidad <- cbind(TotalContratos_Entidad$CantContratos:TotalContratos_Directos$Total)
+```
+
+Cálculo de proporción de contratación directa por cada departamento
+```{r}
+PorpContratDirectDeptos <-Directa_Deptos %>%  group_by(departamento_ejecucion) %>%  summarise(Proporcion=(ContratosDirectos/CantContratos)*100)
+```
+
+Unir las 3 columnas en una sola tabla, cantidad de contratos, contratos directos y la proporción de contratos directos por cada departamento
+```{r}
+Proporcion_Directa_Depto<- merge(Directa_Deptos,PorpContratDirectDeptos, by.x = "departamento_ejecucion", by.y = "departamento_ejecucion")
+```
+Para el caso de los departamentos no se evaluó la correlación entre ninguna de sus variales.
+
+MUNICIPIOS
+```{r}
+MunDirecta <- DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% group_by(municipio_ejecucion) %>% 
+  summarise(Total = n(), Valor = sum(valor_total), VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100, PomedioValor=mean(valor_total))
+```
+PROPORCIÓN DE CONTRATOS DIRECTOS POR MUNICIPIO
+```{r}
+TotalContratos_Mcpio <- DT %>% group_by(municipio_ejecucion) %>% summarise(CantContratos=n()) 
+TotalContratos_Direct_Mcpio <- DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% group_by(municipio_ejecucion) %>% summarise(ContratosDirectos=n())
+Directa_Mcpio <- merge(TotalContratos_Mcpio,TotalContratos_Direct_Mcpio, by.x = "municipio_ejecucion", by.y = "municipio_ejecucion")
+
+#TotalContratos_Entidad$Directos  <- ifelse(TotalContratos_Directos$nombre_entidad %in% TotalContratos_Entidad$nombre_entidad, 1, NA)
+#Proporcion_Directa_Entidad <- cbind(TotalContratos_Entidad$CantContratos:TotalContratos_Directos$Total)
+```
+Cálculo de proporción de contratación directa por cada municipio
+```{r}
+PorpContratDirectMcpio <-Directa_Mcpio %>%  group_by(municipio_ejecucion) %>%  summarise(Proporcion=(ContratosDirectos/CantContratos)*100)
+```
+Unir las 3 columnas en una sola tabla, cantidad de contratos, contratos directos y la proporción de contratos directos por cada departamento
+```{r}
+Proporcion_Directa_Mcpio<- merge(Directa_Mcpio,PorpContratDirectMcpio, by.x = "municipio_ejecucion", by.y = "municipio_ejecucion")
+```
+Para el caso de los municipios no se evaluó la correlación entre ninguna de sus variales.
+
+### Serie de tiempo
+```{r}
+#Crear tabla con los datos que se necesitan
+contratos_mes <- DT %>%  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(year(fecha_firma), month(fecha_firma)) %>% 
+  summarise(total = n()) 
+
+names(contratos_mes) <- c("anno", "mes", "total")
+
+contratos_mes$fecha = NA
+
+#Ajustar la tabla a formato necesario para la gráfica
+for(i in 1:nrow(contratos_mes)){
+  contratos_mes[i,4] = paste("01",contratos_mes[i,2], contratos_mes[i,1], sep = "-")
+}
+
+contratos_mes$fecha <- dmy(contratos_mes$fecha)
+
+#Generar gráficos
+p1 <- ggplot(contratos_mes, aes(x = fecha, y = total)) + geom_line()+ theme(axis.text.x = element_text(angle = 45)) + scale_x_date(date_breaks = "1 year", date_labels = "%b %y", minor_breaks = as.Date("2017-01-02")) + geom_vline(xintercept = as.Date("2017-10-01"),color="red")
+#abline(v=as.Date("2015/01/01","%y/%m/%d"))
+ggplotly(p1)
+```
+
+
+```{r}
+fechas_rr<-c(01-01-2017,01-01-2018)
+dmy(fechas_rr)
+```
+
+
+## CONTRATACION DIRECTA SIN SERVICIOS O APOYO A LA GESTION NI INTERADMINITRATIVOS
+
+### Eliminación registros "prestación de servicios profesionales o de apoyo a la gestión" y "Contratos internadministrativos"
+```{r}
+DC <- DT%>%
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)",causal_cont_direct !="Prestación de Servicios Profesionales y de Apoyo a la Gestión (Literal H)" & causal_cont_direct !="Contratos Interadministrativos (Literal C)" )
+ 
+table(DC$causal_cont_direct) 
+```
+
+Cuántos contratos por CONTRATACIÓN DIRECTA superan el billón de pesos???? 
+ EL PIB SE COLOMBIA ES SÓLO DE 1*10^16
+```{r}
+DC %>%  filter( valor_total>=1000000000000) %>%  group_by(anno_firma) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) )
+```
+
+CAUSAL CONTRATACIÓN DIRECTA
+```{r}
+DC %>%  filter(valor_total>=1000000000000) %>%  group_by(causal_cont_direct) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) )
+```
+
+ TIPO DE CONTRATO
+```{r}
+DC %>%  filter(valor_total>=1000000000000) %>%  group_by(tipo_contrato) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) )
+```
+
+ ESTADO DE PROCESO
+```{r}
+DC %>%  filter(valor_total>=1000000000000) %>%  group_by(estado_proceso) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) )
+```
+
+NOMBRE GRUPO
+```{r}
+DC %>%  filter(valor_total>=1000000000000) %>%  group_by(nombre_grupo) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) )
+```
+
+NOMBRE FAMILIA
+```{r}
+DC %>%  filter( valor_total>=1000000000000) %>%  group_by(nombre_familia) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) )
+```
+
+POR ADICIONES
+Ver cada uno de esos datos que superan en ADCIONES el billón de pesos
+```{r}
+DC %>%  filter(valor_total>=1000000000000)
+```
+
+### Por entidades 
+```{r}
+ResumenGDS<-DC %>%
+  group_by(nombre_entidad) %>%
+  summarise(CantContratos=n(),Plazo=mean(plazo_ejec),VTotal=sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/VTotal)*100, PomedioValor=mean(valor_total))
+```
+
+### Grupos de objeto a contratar
+```{r}
+gruposDSI <- DC %>% 
+  group_by(nombre_grupo) %>% 
+  summarise(Total = n(), Valor = sum(valor_total), VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100, PomedioValor=mean(valor_total)) %>% 
+  arrange(desc(nombre_grupo))
+
+gruposDS <- DC %>% 
+  group_by(nombre_grupo,objeto_contratar) %>% 
+  summarise(Total = n(), Valor = sum(valor_total), VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100, PomedioValor=mean(valor_total)) %>% 
+  arrange(desc(nombre_grupo))
+```
+
+### Lugares (Departamentos)
+### Serie de tiempo
+```{r}
+ #Crear tabla con los datos que se necesitan
+contratos_mes <- DC %>% 
+  group_by(year(fecha_firma), month(fecha_firma)) %>% 
+  summarise(total = n()) 
+
+names(contratos_mes) <- c("anno", "mes", "total")
+
+contratos_mes$fecha = NA
+
+#Ajustar la tabla a formato necesario para la gráfica
+for(i in 1:nrow(contratos_mes)){
+  contratos_mes[i,4] = paste("01",contratos_mes[i,2], contratos_mes[i,1], sep = "-")
+}
+
+contratos_mes$fecha <- dmy(contratos_mes$fecha)
+#Generar gráfico
+p1 <- ggplot(contratos_mes, aes(x = fecha, y = total)) + geom_line() + theme(axis.text.x = element_text(angle = 45)) + scale_x_date(date_breaks = "1 year", date_labels = "%b %y", minor_breaks = as.Date("2017-01-02")) + geom_vline(xintercept = as.Date("2017-10-01"),color="red")
+#abline(v=as.Date("2015/01/01","%y/%m/%d"))
+ggplotly(p1) 
+```
+
+GRAAFICO CON LINEA
+```{r}
+
+#Generar gráficos
+
+x <- as.Date("2013-05-27")+0:99
+y <- cumsum(rnorm(100))
+plot(x,y)
+abline(v=as.Date("2013-08-01"))
+```
+
+# 4.INDICADORES
+## PROPORCIÓN DE PROCEDIMIENTOS NO ABIERTOS (FAZEKAS)
+### PROPORCIÓN DE PROCEDIMIENTOS NO ABIERTOS GENERAL
+
+```{r}
+OPRitG <- DT[,sum(DT$tipo_proceso=="Contratación Directa (Ley 1150 de 2007)") ]
+OPRitG
+TNPit<- DT[,.N]
+TNPit
+NOPRitG <- (OPRitG/TNPit)
+NOPRitG
+```
+
+### Por cantidad de contratos y su valor
+```{r}
+PRNAg <-DT %>%  group_by(tipo_proceso) %>% summarise(Proporcion = n()/nrow(.),Valor=sum(valor_total), Proporcion_Dinero = Valor / sum(PRNAg$Valor))
+```
+
+### PROPORCIÓN DE PROCEDIMIENTOS NO ABIERTOS POR ORDEN DE ENTIDAD
+
+```{r}
+#Por cantidad y valor de contratos
+PRNAoe<-DT %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(orden_entidad) %>%
+  summarise(PropCant = n()/nrow(.),Valor=sum(valor_total), Proporcion_Dinero = Valor / sum(PRNAoe$Valor))
+```
+
+Gráficos para el indicador por orden de entidad
+```{r}
+#Cantidad de contratos
+DT %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(anno_firma, orden_entidad) %>%
+  summarise(P = n()) %>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = orden_entidad)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción de contratos") + ggtitle("Proporción de cantidad procedimientos no abiertos por orden de entidad")
+
+#Valor de los contratos
+DT %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(anno_firma, orden_entidad) %>%
+  summarise(P = sum(valor_total) )%>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = orden_entidad)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción del valor") + ggtitle("Proporción del valor de procedimientos no abiertos por orden de entidad")
+
+```
+
+### PROPORCIÓN DE PROCEDIMIENTOS NO ABIERTOS POR NIVEL DE ENTIDAD
+
+```{r}
+#Por cantidad y valor de contratos
+DT %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(nivel_entidad) %>%
+  summarise( ProporcionCant = n()/nrow(.),Valor=sum(valor_total), Promedio=mean(valor_total))
+#DUDA CON PROMEDIO
+```
+
+### PROPORCIÓN DE PROCEDIMIENTOS NO ABIERTOS POR REGIMEN DE CONTRATACION
+
+```{r}
+DT %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(regimen_contratacion) %>%
+  summarise(ProporcionCant = n()/nrow(.),Valor=sum(valor_total),Promedio=mean(valor_total))
+#DUDA CON PROMEDIO
+```
+
+###  Participación de las causales de contratación directa
+```{r}
+PRNAcausal<-DT %>% 
+  filter(tipo_proceso=="Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(causal_cont_direct) %>%
+  summarise( ProporcionCant = n()/nrow(.),Valor=sum(valor_total),Promedio=mean(valor_total))
+```
+
+La Ley 1150 de 2007 consagró como causales expresas para la contratación directa las siguientes: 
+(a) urgencia manifiesta; 
+(b) contratación de empréstitos; 
+(c) contratos interadministrativos; 
+(d) contratos de bienes y servicios del sector defensa, DAS y que requieren reserva para su adquisición; 
+(e) contratos para el desarrollo de actividades científicas y tecnológicas; 
+(f) encargos fiduciarios celebrados por las entidades territoriales cuando inician Acuerdos de Reestructuración de Pasivos; 
+(g) la inexistencia de pluralidad de oferentes; 
+(h) prestación de servicios profesionales o de apoyo a la gestión o que solamente puedan encomendarse a personas naturales determinadas; 
+(i) arrendamiento o adquisición de inmuebles
+
+En sentido estricto solamente hay contratación directa en los casos de los literales (a) y (g) anteriores, es decir cuando hay una urgencia manifiesta y frente a la ausencia de pluralidad de oferentes. En el caso de los literales (d), (e) y (f) siempre debe haber un mecanismo competitivo, cualquiera que este sea y en el caso de los literales (b) y (c) no estamos frente a la adquisición de bienes y servicios o la ejecución de obra pública, a menos que el contrato interadministrativo sea usado para esconder una transacción comercial diferente, caso en el cual estamos en una violación de la competencia (PACA).
+
+GRÁFICA
+```{r}
+#Cantidad de contratos
+DT %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(anno_firma, causal_cont_direct) %>%
+  summarise(P = n()) %>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = causal_cont_direct)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción de contratos") + ggtitle(" Participación por cantidad de contratos de las causales de contratación directa")
+
+#Valor de los contratos
+DT %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(anno_firma, causal_cont_direct) %>%
+  summarise(P = sum(valor_total) )%>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = causal_cont_direct)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción del valor") + ggtitle(" Participación por valor de las causales de contratación directa")
+
+```
+
+REALIZAR LAS MISMAS GRAFICAS PERO SIN INCLUIR LITERALES A Y H.
+```{r}
+#Cantidad de contratos
+DC %>% 
+  group_by(anno_firma, causal_cont_direct) %>%
+  summarise(P = n()) %>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = causal_cont_direct)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción de contratos") + ggtitle(" Participación por cantidad de contratos de las causales de contratación directa")
+
+#Valor de los contratos
+DC %>% 
+  group_by(anno_firma, causal_cont_direct) %>%
+  summarise(P = sum(valor_total) )%>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = causal_cont_direct)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción del valor") + ggtitle(" Participación por valor de las causales de contratación directa")
+```
+
+## TIPO DE PROCESO
+```{r}
+#Cantidad de contratos
+DT %>% 
+  group_by(anno_firma, tipo_proceso) %>%
+  summarise(P = n()) %>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = tipo_proceso)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción de contratos") + ggtitle(" Participación por cantidad de contratos de las causales de contratación directa")
+
+#Valor de los contratos
+DT %>% 
+  group_by(anno_firma, tipo_proceso) %>%
+  summarise(P = sum(valor_total) )%>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = tipo_proceso)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción del valor") + ggtitle(" Participación por valor de las causales de contratación directa")
+```
+
+## OBJETO A CONTRATAR
+```{r}
+#Cantidad de contratos
+DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(anno_firma, objeto_contratar) %>%
+  summarise(P = n()) %>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = objeto_contratar)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción de contratos") + ggtitle(" Participación por cantidad de contratos de las causales de contratación directa")
+
+#Valor de los contratos
+DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(anno_firma, objeto_contratar) %>%
+  summarise(P = sum(valor_total) )%>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = objeto_contratar)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción del valor") + ggtitle(" Participación por valor de las causales de contratación directa")
+```
+
+# 5. OTRAS COSAS
+Cuántas veces se repite un contratista en un hospital
+```{r}
+ContratDif_Entidades<-DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%  group_by(nombre_entidad, contratista) %>% summarise(Cantidad = n(), Valor = sum(valor_total))
+```
+
+Histograma de las frecuencias en las que aparecen los contratistas
+```{r}
+hist(ContratDif_Entidades$Cantidad)
+```
+
+Cuáles contratos de ContratDif_Entidades entran en las ctegorías que segun la PACA si son contratación directa??
+```{r}
+datatable(DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% group_by(nombre_entidad,causal_cont_direct) %>%  summarise(S=n())
+          %>% group_by(causal_cont_direct) %>%  summarise(SI=n()) )
+```
+
+LOS QUE SI Y LOS QUE NO POR ENTIDADES
+ Los que si
+```{r}
+Los_que_si<-DT %>% group_by(nombre_entidad)  %>% filter(causal_cont_direct=="Urgencia Manifiesta (Literal A)"|causal_cont_direct=="Cuando no Exista Pluralidad de Oferentes en el Mercado (Literal G)") %>% summarise(SI=n())
+```
+
+Los que no
+```{r}
+LosTotales<- merge(ResumenGDirecta, Los_que_si, by.x = "nombre_entidad", by.y = "nombre_entidad")
+```
+
+Unir todo en uno sólo
+```{r}
+LosTotales$NO<- LosTotales$CantContratos - LosTotales$SI
+LosTotales$PropSI<-LosTotales$SI/LosTotales$CantContratos*100
+LosTotales$PropNO<-LosTotales$NO/LosTotales$CantContratos*100
+```
+
+Tomar solo las columnas que me interesan
+```{r}
+LosTotales<- dplyr::select(LosTotales, nombre_entidad, CantContratos, SI, NO,PropSI,PropNO)
+```
+
+LOS QUE SI Y LOS QUE NO POR DEPARTAMENTOS
+ Los que si
+```{r}
+Los_que_si_Deptos<-DT %>% group_by(departamento_ejecucion)  %>% filter(causal_cont_direct=="Urgencia Manifiesta (Literal A)"|causal_cont_direct=="Cuando no Exista Pluralidad de Oferentes en el Mercado (Literal G)") %>% summarise(SI=n())
+```
+
+Los que no
+```{r}
+LosTotalesDeptos<- merge(Directa_Deptos, Los_que_si_Deptos, by.x = "departamento_ejecucion", by.y = "departamento_ejecucion")
+```
+
+Unir todo en uno sólo
+```{r}
+LosTotalesDeptos$NO<- LosTotalesDeptos$CantContratos - LosTotalesDeptos$SI
+LosTotalesDeptos$PropSI<-LosTotalesDeptos$SI/LosTotalesDeptos$CantContratos*100
+LosTotalesDeptos$PropNO<-LosTotalesDeptos$NO/LosTotalesDeptos$CantContratos*100
+```
+
+Tomar solo las columnas que me interesan
+```{r}
+LosTotalesDeptos<- dplyr::select(LosTotalesDeptos, -ContratosDirectos)
+```
+
+ NOTA IMPORTANTE: PARA MODFICAR DATOS
+```{r}
+# DT[UID == "16-4-5459706-4978708", anno_cargue:= 2016] 
+```
+
+CONTRATOS POR CONTRATISTA
+ENTIDADES
+```{r}
+ComparableEntidades<-DT %>% filter(tipo_proceso== "Contratación Directa (Ley 1150 de 2007)") %>%  group_by(nombre_entidad) %>%  summarise(totalcontratos= n(),totalcontratistas=n_distinct(contratista), Contratos_Constratista=totalcontratos/totalcontratistas, ContratosContratista=median(totalcontratistas), Valor=sum(valor_total)) 
+```
+
+
+```{r}
+hist(ComparableEntidades$totalcontratistas)
+
+```
+
+DEPARTAMENTOS
+```{r}
+ComparableDeptos<-DT %>% filter(tipo_proceso== "Contratación Directa (Ley 1150 de 2007)") %>% group_by(departamento_ejecucion) %>%  summarise(totalcontratos= n(),totalcontratistas=n_distinct(contratista), Contratos_Constratista=totalcontratos/totalcontratistas, contratoscontratista=median(totalcontratistas),  Valor=sum(valor_total)) 
+```
+
+LO QUE LA CONTRATACIÓN DIRECTA REPRESENTA EN EL 2018
+```{r}
+datatable(DT %>% filter(anno_firma == 2018) %>%  group_by(tipo_proceso) %>% summarise(Proporcion = n()/nrow(.),Valor=sum(valor_total), Proporcion_Dinero = Valor / sum(PRNAg$Valor)))
+```
+TENDENCIA LA CONTRATACIÓN DIRECTA REPRESENTA EN EL TIEMPO
+```{r}
+tendencia_ano<-DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%  group_by(anno_firma) %>% summarise(Proporcion = n()/nrow(.),Valor=sum(valor_total))
+tendencia_ano<-tendencia_ano[!(tendencia_ano$anno_firma %in% c("2019")),]
+```
+
+GRAFICO DE TENDENCIA DE CONTRATACIÓN
+```{r}
+tend<-ggplot2::ggplot(tendencia_ano,mapping= aes(x=anno_firma, y=Proporcion, color="red"))+geom_line() + geom_point() +ggtitle("Tendencia de la contratación directa por catidad de contratos")
+ggplotly(tend)
+ggsave(filename = "tendencia.png",plot = tend,device = "png")
+```
+DATOS DE LA ANTERIOR GRÁFICA
+```{r}
+datatable(DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% group_by(anno_firma) %>% summarise(Proporcion = n()/nrow(.),Valor=sum(valor_total))) 
+```
+
+```{r}
+#Cantidad de contratos
+DT %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(anno_firma, nivel_entidad) %>%
+  summarise(P = n()) %>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = nivel_entidad)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción de contratos") + ggtitle("Proporción de cantidad procedimientos no abiertos por nivel de entidad")
+
+#Valor de los contratos
+DT %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  group_by(anno_firma, nivel_entidad) %>%
+  summarise(P = sum(valor_total) )%>%
+  ggplot(., aes(x = factor(anno_firma), y = P, fill = nivel_entidad)) +
+  geom_bar(position = "fill", stat = "identity") +
+  xlab(label = "Año") + ylab(label = "Proporción del valor") + ggtitle("Proporción del valor de procedimientos no abiertos por nivel de entidad")
+```
+
+```{r}
+datatable(DT %>% filter(tipo_proceso=="Contratación Directa (Ley 1150 de 2007)") %>% group_by(nivel_entidad) %>%  summarise(cantidad=n(), porcentaje=n()/nrow(.)))
+```
+
+##ICFES
+## DEPARTAMENTOS
+Promedios generales por departamentos
+```{r}
+promedioicfes<-(ICFES11 %>% group_by(COLE_DEPTO_UBICACION) %>% summarise(Promedio=mean(PUNT_GLOBAL)))
+```
+Promedios generales por departamentos
+```{r}
+datatable(ICFES11 %>%filter(PUNT_SOCIALES_CIUDADANAS>=0) %>%  group_by(COLE_DEPTO_UBICACION) %>% summarise(Promedio=mean(PUNT_SOCIALES_CIUDADANAS)))
+```
+Poner mismo nombre a las columnas del merge, pasar la del SECOP al nombre de promedioicfes
+```{r}
+#names(promedioicfes$COLE_DEPTO_UBICACION)<-names("departamento_ejecucion")
+colnames(promedioicfes)[colnames(promedioicfes)=="COLE_DEPTO_UBICACION"] <- "departamento_ejecucion"
+```
+Unir el % de contratación directa ypromedio icfes
+```{r}
+DTICFES<-merge(Proporcion_Directa_Depto,promedioicfes, by.x = "departamento_ejecucion", by.y = "departamento_ejecucion", all = T)
+DTICFES <- dplyr::select(DTICFES,departamento_ejecucion,Proporcion,Promedio)
+```
+El hecho de que las tablas no se unan de forma adecuada y no cuenten con las misma cantida de columnas se debe a que departamentos como Arauca, Guanía y Vaupés NO TIENEN contratación directa.
+
+Probar normalidad de datos ICFES
+```{r}
+qqnorm(promedioicfes$Promedio, main = "Puntajes globlales ICFES departamentos", col = "darkred")
+qqline(promedioicfes$Promedio)
+hist(x=promedioicfes$Promedio, main = "Histograma puntajes globlales ICFES departamentos", xlab = "Puntaje", ylab = "Frecuencia",col = "darkgray", border = "white", probability = TRUE) 
+lines(density(promedioicfes$Promedio), col = "blue", lwd=2)
+abline(v=median(promedioicfes$Promedio), lwd=2)
+#shapiro.test(ICFES11$PUNT_GLOBAL)
+shapiro.test(promedioicfes$Promedio)
+```
+curtosis
+```{r}
+kurtosis(promedioicfes$Promedio)
+skewness(promedioicfes$Promedio)
+descdist(promedioicfes$Promedio, discrete=FALSE, boot=500)
+```
+
+
+## MUNICIPIOS
+Promedios generales por municipio
+```{r}
+munpromedioicfes<-(ICFES11 %>% group_by(COLE_MCPIO_UBICACION) %>% summarise(Promedio=mean(PUNT_GLOBAL)))
+```
+Promedios generales por municipios de competencias ciudadanas
+```{r}
+datatable(ICFES11 %>%filter(PUNT_SOCIALES_CIUDADANAS>=0) %>%  group_by(COLE_MCPIO_UBICACION) %>% summarise(Promedio=mean(PUNT_SOCIALES_CIUDADANAS)))
+```
+Poner mismo nombre a las columnas del merge, pasar la del SECOP al nombre de promedioicfes
+```{r}
+#names(promedioicfes$COLE_DEPTO_UBICACION)<-names("departamento_ejecucion")
+colnames(munpromedioicfes)[colnames(munpromedioicfes)=="COLE_MCPIO_UBICACION"] <- "municipio_ejecucion"
+```
+Unir el % de contratación directa y promedio icfes
+```{r}
+DMICFES<-merge(Proporcion_Directa_Mcpio,munpromedioicfes, by.x = "municipio_ejecucion", by.y = "municipio_ejecucion", all = T)
+DMICFES <- dplyr::select(DTICFES,municipio_ejecucion,Proporcion,Promedio)
+```
+Probar normalidad de datos ICFES
+```{r}
+qqnorm(munpromedioicfes$Promedio, main = "Puntajes globlales ICFES municipios", col = "darkred")
+qqline(munpromedioicfes$Promedio)
+hist(x=munpromedioicfes$Promedio, main = "Histograma puntajes globlales ICFES municipios", xlab = "Puntaje", ylab = "Frecuencia",col = "darkgray")
+lines(density(munpromedioicfes$Promedio), col = "blue")
+#shapiro.test(ICFES11$PUNT_GLOBAL)
+shapiro.test(munpromedioicfes$Promedio)
+```
+
+curotisis
+```{r}
+kurtosis(munpromedioicfes$Promedio)
+skewness(munpromedioicfes$Promedio)
+descdist(munpromedioicfes$Promedio, discrete=FALSE, boot=500)
+```
+
+Probar normalidad de datos proporcion directa municipio
+```{r}
+Proporcion_Directa_Depto$Proporcion<- as.numeric(Proporcion_Directa_Depto$Proporcion)
+hist(x=Proporcion_Directa_Mcpio$Proporcion, main = "Histograma proporción directa municipios", xlab = "Proporción", ylab = "Frecuencia",col = "darkgray",border = "white", probability = TRUE) 
+lines(density(Proporcion_Directa_Mcpio$Proporcion), col = "blue", lwd=2)
+#abline(v=mean(Proporcion_Directa_Mcpio$Proporcion), lwd=2)
+#abline(v=median(Proporcion_Directa_Mcpio$Proporcion), lwd=2, col="blue")
+
+hist(x=Proporcion_Directa_Depto$Proporcion, main = "Histograma proporción directa departamento", xlab = "Proporción", ylab = "Frecuencia",col = "darkgray", border = "white", probability = TRUE)
+lines(density(Proporcion_Directa_Depto$Proporcion), col = "blue", lwd=2)
+#abline(v=median(Proporcion_Directa_Depto$Proporcion), lwd=2)
+#abline(v=mean(Proporcion_Directa_Depto$Proporcion), col="blue")
+
+#shapiro.test(ICFES11$PUNT_GLOBAL)
+shapiro.test(Proporcion_Directa_Mcpio$Proporcion)
+shapiro.test(Proporcion_Directa_Depto$Proporcion)
+```
+
+```{r}
+plot(x=promedioicfes$Promedio, y=Proporcion_Directa_Depto$Proporcion, main= "Gráfico de dispersión", pch=20)
+abline(lm(Proporcion_Directa_Depto$Proporcion ~ promedioicfes$Promedio), col="yellow")
+shapiro.test(Proporcion_Directa_Depto$Proporcion)
+shapiro.test(promedioicfes$Promedio)
+cor.test(Proporcion_Directa_Depto$Proporcion, promedioicfes$Promedio, method = "spearman")
+cor.test(Proporcion_Directa_Depto$Proporcion, promedioicfes$Promedio, method = "pearson")
+```
+
+
+## MAPA % DIRECTA
+### Ajustar datos
+
+Eliminar las columnas de Proporcion_Directa_Depto
+```{r}
+Proporcion_Directa_Depto$CantContratos<- NULL
+Proporcion_Directa_Depto$ContratosDirectos<- NULL
+```
+
+Pasar los nombres de Proporcion_Directa_Depto (DT SECOP) a nombres de ICFES
+```{r}
+#Crear filas con dataframe
+Proporcion_Directa_Depto<- as.data.frame(Proporcion_Directa_Depto)
+Proporcion_Directa_Depto[32,]= c("ARAUCA",0)
+Proporcion_Directa_Depto[33,]= c("GUAINIA",0)
+Proporcion_Directa_Depto[34,]= c("VAUPES",0)
+#Eliminar fila COLOMBIA
+Proporcion_Directa_Depto<-Proporcion_Directa_Depto[!(Proporcion_Directa_Depto$departamento_ejecucion %in% c( "COLOMBIA")),]
+
+#Data Table
+Proporcion_Directa_Depto <- as.data.table(Proporcion_Directa_Depto)
+Proporcion_Directa_Depto[departamento_ejecucion == "BOGOTA D.C." , departamento_ejecucion:="BOGOTA"]
+Proporcion_Directa_Depto[departamento_ejecucion == "SAN ANDRES, PROVIDENCIA Y SANTA CATALINA" , departamento_ejecucion:="SAN ANDRES"]
+Proporcion_Directa_Depto[departamento_ejecucion == "NORTE DE SANTANDER", departamento_ejecucion:="NORTE SANTANDER"]
+Proporcion_Directa_Depto[departamento_ejecucion == "VALLE DEL CAUCA", departamento_ejecucion:="VALLE"]
+```
+
+Pasr los nombre de departamentos a Proporcion_Directa_Depto
+```{r}
+#Quitar las tildes
+departamentos$nombre<-chartr('ÁÉÍÓÚ','AEIOU',departamentos$nombre)
+departamentos$nombre<-chartr('ÁÉÍÓÚ','AEIOU',departamentos$nombre)
+
+#Eliminar fila NO DEFINIDO
+departamentos<-departamentos[!(departamentos$nombre %in% c( "NO DEFINIDO")),]
+
+#Data Table
+departamentos <- as.data.table(departamentos)
+departamentos[nombre == "BOGOTA, D.C." , nombre:="BOGOTA"]
+departamentos[nombre == "ARCHIPIELAGO DE SAN ANDRES, PROVIDENCIA Y SANTA CATALINA" , nombre:="SAN ANDRES"]
+departamentos[nombre == "NORTE DE SANTANDER", nombre:="NORTE SANTANDER"]
+departamentos[nombre == "VALLE DEL CAUCA", "nombre":="VALLE"]
+```
+
+### Hacer el mapa
+```{r}
+#cambiar nomre del la columna de departamentos
+names(departamentos) <- c('codigo','departamento_ejecucion', 'id')
+
+
+Mapa_Proporcion_Directa_Depto <- left_join(Proporcion_Directa_Depto,departamentos,by = "departamento_ejecucion")
+
+# Leer información geografica
+ohsCol2 <- readOGR("COL_adm1.shp")
+
+as.numeric(Mapa_Proporcion_Directa_Depto$codigo)
+
+# Agregar las atenciones de Bogotá a Cundinamarca
+#Mapa_Proporcion_Directa_Depto$Proporcion[Mapa_Proporcion_Directa_Depto$codigo == 25] =
+  #(Mapa_Proporcion_Directa_Depto$Proporcion[Mapa_Proporcion_Directa_Depto$codigo == 25] + 
+ #Mapa_Proporcion_Directa_Depto$Proporcion[Mapa_Proporcion_Directa_Depto$codigo == 11]) /2 
+
+Mapa_Proporcion_Directa_Depto <- Mapa_Proporcion_Directa_Depto[Mapa_Proporcion_Directa_Depto$codigo != 11,]
+##OGR data source with driver: ESRI Shapefile 
+##Source: "C:\Users\Yerazo\Documents\SIGMAP\Proyecto\depto.shp", layer: "depto"
+##with 33 features
+##It has 5 fields
+```
+
+Convierte un objeto de curvas y puntos a un marco de datos para ggplot2
+
+```{r}
+ohsColI2 <- fortify(ohsCol2)
+## Regions defined for each Polygons
+```
+
+Visualizar el Mapa
+```{r}
+grupo <- Mapa_Proporcion_Directa_Depto %>% 
+  dplyr::select(id, Proporcion) %>% 
+  arrange(desc(-id))
+
+grupo$id <- c(0:31)
+
+mapa <- merge(ohsColI2, grupo, by = "id")
+
+mapa$Proporcion <- as.numeric(mapa$Proporcion)
+
+mapColDep1 <- ggplot() +
+  geom_polygon(data=mapa, aes(x=long, y=lat, group = group, fill = Proporcion), 
+               colour ="black", size = 0.2) +
+  labs(title = "Colombia", fill = "") +
+  labs(x="",y="",title="Proporcion Directa por departamentos") + scale_x_continuous(limits=c(-80,-65))+scale_y_continuous(limits=c(-5,13))
+
+ggplotly(mapColDep1)
+
+```
+
+## MAPA PROMEDIO ICFES
+```{r}
+Mapa_promedioicfes <- left_join(promedioicfes,departamentos,by = "departamento_ejecucion")
+
+# Leer información geografica
+ohsCol3 <- readOGR("COL_adm1.shp")
+
+as.numeric(Mapa_promedioicfes$codigo)
+
+# Agregar las atenciones de Bogotá a Cundinamarca
+#Mapa_Proporcion_Directa_Depto$Proporcion[Mapa_Proporcion_Directa_Depto$codigo == 25] =
+  #(Mapa_Proporcion_Directa_Depto$Proporcion[Mapa_Proporcion_Directa_Depto$codigo == 25] + 
+ #Mapa_Proporcion_Directa_Depto$Proporcion[Mapa_Proporcion_Directa_Depto$codigo == 11]) /2 
+
+Mapa_promedioicfes <- Mapa_promedioicfes[Mapa_promedioicfes$codigo != 11,]
+##OGR data source with driver: ESRI Shapefile 
+##Source: "C:\Users\Yerazo\Documents\SIGMAP\Proyecto\depto.shp", layer: "depto"
+##with 33 features
+##It has 5 fields
+```
+
+Convierte un objeto de curvas y puntos a un marco de datos para ggplot2
+
+```{r}
+ohsColI4 <- fortify(ohsCol3)
+## Regions defined for each Polygons
+```
+
+Visualizar el Mapa
+```{r}
+grupo2 <- Mapa_promedioicfes %>% 
+  dplyr::select(id, Promedio) %>% 
+  arrange(desc(-id))
+
+grupo2$id <- c(0:31)
+
+mapa2 <- merge(ohsColI4, grupo2, by = "id")
+
+mapColDep2 <- ggplot() +
+  geom_polygon(data=mapa2, aes(x=long, y=lat, group = group, fill = Promedio), 
+               colour ="black", size = 0.2) + col="red"+
+  labs(title = "Colombia", fill = "") +
+  labs(x="",y="",title="Promedio ICFES -11 por departamentos") + scale_x_continuous(limits=c(-80,-65))+scale_y_continuous(limits=c(-5,13))
+
+ggplotly(mapColDep2)
+
+```
+## PARTICIPACION CIUDADANA
+```{r}
+#participcion ciudadana
+plot(x=participacion$participacion_ciudadana, y=Proporcion_Directa_Depto$Proporcion)
+abline(lm(Proporcion_Directa_Depto$Proporcion ~ participacion$participacion_ciudadana))
+#lucha contra la corrupcion
+plot(x=participacion$acceso_trans_lucha, y=Proporcion_Directa_Depto$Proporcion)
+abline(lm(Proporcion_Directa_Depto$Proporcion ~ participacion$acceso_trans_lucha))
+shapiro.test(participacion$participacion_ciudadana)
+# como ni el indice de particicipacion ni la proporcion siguen una distribuacion normal entonces se hace correlacion de spearman
+cor.test(participacion$participacion_ciudadana, Proporcion_Directa_Depto$Proporcion, method = "spearman")
+#Puesto que no se tiene correlacion entonces se procede a ver la normalidad de transparencia y lucha contra la corrupcion
+shapiro.test(participacion$acceso_trans_lucha)
+#Puesto que tampoco es normal se hace correlacion de spearman
+cor.test(participacion$acceso_trans_lucha, Proporcion_Directa_Depto$Proporcion, method = "spearman")
+```
+
+## LIMPIEZA DE LAS FECHAS
+```{r}
+# Crea una copia de dataframe original
+datos <- SECOP_I
+
+#names(datos)
+
+#ver que los datos estén en formato fecha
+class(datos$anno_cargue)
+datos %>% group_by(anno_cargue) %>% summarise(total=n())
+
+class(datos$anno_firma)
+datos %>% group_by(anno_firma) %>% summarise(total=n())
+
+class(datos$fecha_cargue)
+datos$fecha_cargue <- as.Date(datos$fecha_cargue, format="%m/%d/%Y")
+
+class(datos$fecha_firma)
+datos$fecha_firma <- as.Date(datos$fecha_firma, format = "%d/%m/%Y")
+
+class(datos$fecha_ini_ejec)
+class(datos$plazo_ejec)
+class(datos$rango_ejec)
+class(datos$adiciones_dias)
+class(datos$adiciones_meses)
+class(datos$fecha_fin_ejec)
+
+datos <- datos %>% separate(municipio_ejecucion,
+                   into= c("depto_ejecucion", "municipio_ejecucion"), 
+                   sep = " - ")
+
+datos <- unite(datos, depto_mun, c("depto_ejecucion", "municipio_ejecucion"), sep = " - ", remove = FALSE)
+
+#limpieza
+#cuántos contratos se cargaron antes de que se firmaran
+datos %>% filter(fecha_cargue < fecha_firma) %>%  summarise(total=n())
+
+datatable(datos %>% filter(fecha_cargue < fecha_firma) %>% 
+            group_by(depto_ejecucion) %>% 
+            summarise(total=n()))
+
+datatable(datos %>% filter(fecha_cargue < fecha_firma) %>% 
+            group_by(municipio_ejecucion) %>% 
+            summarise(total=n()))
+
+#cuántos contratos iniciaron antes de que se cargaran
+datos %>% filter(fecha_ini_ejec < fecha_cargue) %>% summarise(total=n())
+
+#cuántos contratos iniciaron antes de que se firmaran
+datos %>% filter(fecha_ini_ejec < fecha_firma) %>% summarise(total=n())
+
+#cuántos contratos terminaron antes de que se cargaran
+datos %>% filter(fecha_fin_ejec < fecha_cargue) %>% summarise(total=n())
+
+#cuántos contratos terminaron antes de que se firmaran
+datos %>% filter(fecha_fin_ejec < fecha_firma) %>% summarise(total=n())
+
+#cuántos contratos terminaron antes de que iniciaran (0)
+datos %>% filter(fecha_fin_ejec < fecha_ini_ejec) %>% summarise(total=n())
+
+#diferencia entre inicio y fin 
+datatable(datos %>% filter(fecha_fin_ejec -  fecha_ini_ejec > plazo_ejec) %>% 
+            dplyr::select(depto_ejecucion, municipio_ejecucion, adiciones_dias))
+
+# gráfico
+
+p1 <- ggplot(contratos_mes, aes(x = fecha, y = total)) + 
+  geom_line() + theme(axis.text.x = element_text(angle = 45)) + 
+  scale_x_date(date_breaks = "1 year", date_labels = "%b %y", minor_breaks = as.Date("2017-01-02")) +         geom_vline(xintercept = as.Date("2017-10-01"),color="red") #abline(v=as.Date("2015-01-01","%y/%m/%d"))
+ggplotly(p1) 
+```
+
