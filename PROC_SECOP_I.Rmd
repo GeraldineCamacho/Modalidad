@@ -41,57 +41,31 @@ opts_chunk$set(warning = FALSE, message = FALSE)
 
 Lee base de datos
 ```{r}
-SECOP_I <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\Documents\\SIGMAP\\Proyecto\\SECOP_I_SFF.csv",delim = ";")
+SECOP_I <- read_delim("secop_i_ips_limpia.csv", ";", 
+                      escape_double = FALSE, trim_ws = TRUE)
 ```
 
 Leer ICFES
 ```{r}
-ICFES11 <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\SIGMAP\\Proyecto\\Saber_11__2018-2.csv",delim = ",")
+#aun no leido
+ICFES11 <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\SIGMAP\\Proyecto\\Saber_11__2018-2.csv",
+                      delim = ",")
 ```
 
 Leer archivo id de los departamentos
 ```{r}
-departamentos <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\SIGMAP\\Proyecto\\departamentos.csv",delim = "|")
+#aun no leido
+departamentos <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\SIGMAP\\Proyecto\\departamentos.csv",
+                            delim = "|")
 ```
 
 Leer datos de participación ciudadana y acceso, transparencia, lucha contra corrupción
 ```{r}
-participacion<-read_delim(file = "C:\\Users\\Yerazo\\Documents\\SIGMAP\\Proyecto\\DEPTOPARTICIPACIONCIUDADANACSV.csv", delim = ";")
-```
-
-```{r}
-Objeto %>% arrange(total) %>% 
-  mutate(objeto_contratar=factor(objeto_contratar, levels=objeto_contratar))%>% 
-           ggplot( aes(x=objeto_contratar, y=total)) +
-           geom_segment( aes(xend=objeto_contratar, yend=0)) +
-           geom_point( size=4, color="orange") +
-           coord_flip() + theme_bw() + xlab("")
-         
-#rlang::last_error()         
+#aun no ledido pero sí sé para qué es
+participacion<-read_delim(file ="DEPTOPARTICIPACIONCIUDADANACSV.csv", delim = ";")
 ```
 
 # 2.LIMPIEZA
-## Renombrar las columnas y quitar registros repetidos
-```{r}
-SECOP_I <- distinct(SECOP_I)
-nombres = c("UID","anno_cargue","anno_firma","nivel_entidad","orden_entidad",
-            "nombre_entidad","NIT_entidad","cod_entidad","ID_tipo_proceso",
-            "tipo_proceso","estado_proceso","causal_cont_direct","ID_reg_contrat",
-            "regimen_contratacion","ID_objeto","objeto_contratar","detalle_objeto",
-            "tipo_contrato","municipio_obtencion","municipio_entrega",
-            "municipio_ejecucion","fecha_cargue","numero_constancia","numero_proceso",
-            "numero_contrato","valor_estimado","ID_grupo","nombre_grupo","ID_familia",
-            "nombre_familia","ID_clase","nombre_clase","ID_adjudicacion",
-            "tipo_id_contratista","id_contratista","contratista","departamento_contratista",
-            "tipo_id_rep_legal","id_rep_legal","nombre_rep_legal","fecha_firma",
-            "fecha_ini_ejec","plazo_ejec","rango_ejec","adiciones_dias","adiciones_meses",
-            "fecha_fin_ejec","compromiso_presupuestal","valor_inicial","valor_adiciones",
-            "valor_total","objeto_contrato_firma","ID_origen_recursos","origen_recursos",
-            "codigo_BPIN","proponentes_selecc","calificacion_definitiva","ID_sub_unid_ejec",
-            "nombre_sub_unid_ejec","moneda","post_conflicto","ruta_web")
-names(SECOP_I) <- nombres
-```
-
 Se filtran los datos de los años 2014 en adelante
 ```{r}
 SECOP_I <- SECOP_I %>% filter((anno_cargue >=2014 & anno_firma>=2014))
@@ -99,39 +73,9 @@ SECOP_I <- SECOP_I %>% filter((anno_cargue >=2014 & anno_firma>=2014))
 
 Inicialmente se tienen `r dim(SECOP_I)[1]` contratos.
 
-```{r}
-SECOP_I %>% group_by(regimen_contratacion) %>% summarise(Total = n()) 
-```
-
-```{r}
-SECOP_I %>% filter(regimen_contratacion == "Estatuto General de Contratación")
-```
-
-```{r}
-ent_reg <- SECOP_I %>% 
-  group_by(nombre_entidad,regimen_contratacion) %>% 
-  summarise(Total = n()) %>% 
-  filter(regimen_contratacion == "Régimen Especial")
-ent_reg
-```
-
-
-```{r}
-ent_solo_ley80 <- all_ent %>% filter(!all_ent$nombre_entidad %in% ent_reg$nombre_entidad) %>% arrange(desc(Total))
-ent_solo_ley80
-```
-
-
-```{r}
-SECOP_I %>% filter(tipo_contrato == "Prestación de Servicios") 
-```
-
 ## Sacar los NAs de plazo_ejec_calculado por no tener adjudicacion
-
 ```{r}
-SECOP_I$fecha_fin_ejec <- dmy(SECOP_I$fecha_fin_ejec)
-SECOP_I$fecha_ini_ejec <- dmy(SECOP_I$fecha_ini_ejec)
-SECOP_I$plazo_ejec_calc <- SECOP_I$fecha_fin_ejec - SECOP_I$fecha_ini_ejec
+SECOP_I$plazo_ejec_calc <- SECOP_I$fecha_fin_ejec_contrato - SECOP_I$fecha_inicio_ejec_contrato
 SECOP_I$plazo_ejec_calc <- as.integer(SECOP_I$plazo_ejec_calc)
 SECOP_I <- SECOP_I %>% filter(!is.na(plazo_ejec_calc))
 ```
@@ -142,7 +86,7 @@ Al quitar los datos faltantes en el plazo de ejecución se tienen `r dim(SECOP_I
 summary(SECOP_I$plazo_ejec_calc)
 ```
 
-Hay contratos que tienen mas de 4 años en plazo de ejecución. **¿Se deben considerar?**
+Hay 235 contratos que tienen mas de 4 años en plazo de ejecución. **¿Se deben considerar?**
 
 ```{r}
 sum(SECOP_I$plazo_ejec_calc >= (365*4))
@@ -153,12 +97,12 @@ Se verifica la diferencia entre el plazo de ejecución calculado y el plazo de e
 ```{r}
 SECOP_I <- SECOP_I %>% 
   mutate(plazo_ejec_dias = case_when(
-    rango_ejec == "D" ~ plazo_ejec, 
-    rango_ejec == "M" ~ plazo_ejec*30
+    rango_ejec_contrato == "D" ~ plazo_ejec_contrato, 
+    rango_ejec_contrato == "M" ~ plazo_ejec_contrato*30
   ))
 ```
 
-
+Ver un resumen de la diferencia entre el plazo de ejecución y el tiempo real de ejecución del contrato
 ```{r}
 dif_plazo <- SECOP_I$plazo_ejec_dias-SECOP_I$plazo_ejec_calc
 summary(dif_plazo)
@@ -171,29 +115,23 @@ ggplot(data = data.frame(dif = dif_plazo), aes(x = log(dif))) + geom_histogram()
 
 ```{r}
 #as.numeric(SECOP_I$valor_total)
-sum(SECOP_I$valor_total)
+sum(SECOP_I$valor_total_con_adiciones)
 sum(SECOP_I$valor_adiciones)
-sum(SECOP_I$valor_inicial)
-sum(SECOP_I$valor_estimado)
 ```
 
 ## Convenios interadministativos
 
 ```{r}
 SECOP_I = SECOP_I %>%
-  filter(!(str_detect(str_to_lower(detalle_objeto),"aunar esfuerzos") |
-           str_detect(str_to_lower(detalle_objeto),"anuar esfuerzos") |
-           str_detect(str_to_lower(detalle_objeto),"aunar espuerzos")))
+  filter(!(str_detect(str_to_lower(detalle_objeto_contratar),"aunar esfuerzos") |
+           str_detect(str_to_lower(detalle_objeto_contratar),"anuar esfuerzos") |
+           str_detect(str_to_lower(detalle_objeto_contratar),"aunar espuerzos")))
 
-Conv_inter = SECOP_I %>%
-  filter((str_detect(str_to_lower(detalle_objeto),"aunar esfuerzos") |
-           str_detect(str_to_lower(detalle_objeto),"anuar esfuerzos") |
-           str_detect(str_to_lower(detalle_objeto),"aunar espuerzos"))) %>% 
-  dplyr::select(UID,detalle_objeto)
-
+#no disminuyó la cantidad de registros
 ```
 
 Al quitar los convenios interadministrativos quedan `r dim(SECOP_I)[1]`
+
 ## Contratos asociados a transacciones bancarias
 En primer lugar se retiran contratos asociados a: 
 - Crédito
@@ -205,15 +143,19 @@ SECOP_I$tipo_contrato <- as.factor(SECOP_I$tipo_contrato)
 SECOP_I <- SECOP_I %>% 
   filter(!(tipo_contrato == "Crédito" | tipo_contrato == "Fiducia" | 
              tipo_contrato == "Comodato" | tipo_contrato == "Arrendamiento"))
+
+#tampoco disminuyó registros
 ```
 
 Retirar contratos que hablen de emprestito
 
 ```{r}
 SECOP_I <- SECOP_I %>% 
-  filter(!(str_detect(str_to_lower(detalle_objeto),"empréstito") |
-            str_detect(str_to_lower(detalle_objeto),"emprestito") |
-            str_detect(str_to_lower(detalle_objeto),"empresito")))
+  filter(!(str_detect(str_to_lower(detalle_objeto_contratar),"empréstito") |
+            str_detect(str_to_lower(detalle_objeto_contratar),"emprestito") |
+            str_detect(str_to_lower(detalle_objeto_contratar),"empresito")))
+
+#eliminó 4 registros
 ```
 
 ## Depura registros donde año de cargue > año de firma
@@ -225,8 +167,11 @@ SECOP_I <- SECOP_I %>% filter(!(is.na(anno_firma)))
 ```
 
 Ahora se retiran contratos donde año de cargue > año de firma
+DUDAS CON RESPECTO A ESTO PORQUE un contrato se pudo haber firmado en 31-12-2016 y cargado el 1-1-2017
+REVISAR LA DECRIPCION DE LO QUE SON ESTAS VARIABLES*****
 
 ```{r}
+#esto no se ha corrido
 fecha_mal <- SECOP_I %>% filter(anno_cargue > anno_firma)
 sum(fecha_mal$valor_total)
 ```
@@ -234,39 +179,40 @@ sum(fecha_mal$valor_total)
 Con este filtro se retiran `r dim(fecha_mal)[1]` contratos que suman un valor total de 2.5 Billones.
 
 ```{r}
+#esto no se ha corrido
 SECOP_I <- SECOP_I %>% filter(!(anno_cargue > anno_firma))
 ```
 
 Escribir la base de datos
 
 ```{r}
-fwrite(SECOP_I, file = "SECOP_IPS_LIMPIA.csv", sep = ";", row.names = FALSE)
+fwrite(SECOP_I, file = "SECOP_IPS_LIMPIA.csv", 
+       sep = ";", 
+       row.names = FALSE)
 ```
 
 
 ```{r}
+#AUN NO se ha corrido
 fwrite(Proporcion_Directa_Depto, file = "DEPTOPARTICIPACIONCIUDADANA.csv", sep = ";", row.names = FALSE)
 ```
 
-Revisar el valor de contratos altos valores. Los dos primeros tienen error en sus cuantias.
-
-```{r}
-datatable(head(SECOP_I, n = 200))
-```
 Escribir la base de datos
-
 ```{r}
 SECOP_I <- read_delim(file = "C:\\Users\\Yerazo\\Documents\\Documents\\SIGMAP\\Proyecto\\SECOP_IPS_LIMPIA.csv",delim = ";")
 ```
+
 Convertir SECOP_I en data table
 ```{r}
-DT<- as.data.table(SECOP_I)
+SECOP_I<- as.data.table(SECOP_I)
 ```
+
+HASTA AQUI LLEGUÉ 
 
 ## EXTRAER LOS DEPARTAMENTOS Y LOS MUNICIPIOS DE CADA CONTRATO
 ```{r}
 {# Extraer departamento----
-  # Con este parte del codigo extraigo el departamento de ejecuciÃ³n
+  # Con este parte del codigo extraigo el departamento de ejecución
   depto_entidad <- str_sub(string = DT$municipio_ejecucion, 
                start = 1L, 
                end = str_locate(string = DT$municipio_ejecucion, pattern = "-")[,1]-2)
