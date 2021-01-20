@@ -1361,3 +1361,8 @@ p1 <- ggplot(contratos_mes, aes(x = fecha, y = total)) +
 ggplotly(p1) 
 ```
 
+Prueba
+```{r}
+#error
+```
+
