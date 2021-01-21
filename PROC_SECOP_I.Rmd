@@ -553,7 +553,10 @@ deptos <- merge(total_contratos,
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
 
+#falta agregar las adiciones y la concentración de contratos, pero primero hay que analizar las distribuciones estadísticas de esas variables para sacarles una media o una mediana.
+
 ```
+
 
 PROPORCIÓN DE CONTRATOS DIRECTOS POR ENTIDAD
 ```{r}
