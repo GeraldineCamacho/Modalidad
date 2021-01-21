@@ -207,86 +207,99 @@ Convertir SECOP_I en data table
 SECOP_I<- as.data.table(SECOP_I)
 ```
 
-HASTA AQUI LLEGUÉ 
-
 ## EXTRAER LOS DEPARTAMENTOS Y LOS MUNICIPIOS DE CADA CONTRATO
 ```{r}
 {# Extraer departamento----
   # Con este parte del codigo extraigo el departamento de ejecución
-  depto_entidad <- str_sub(string = DT$municipio_ejecucion, 
+  depto_entidad <- str_sub(string = SECOP_I$municipio_ejecucion, 
                start = 1L, 
-               end = str_locate(string = DT$municipio_ejecucion, pattern = "-")[,1]-2)
+               end = str_locate(string = SECOP_I$municipio_ejecucion, pattern = "-")[,1]-2)
 }
 
 
 {# Extraer el municipio----
-  # Con este parte del codigo extraigo el municipio de ejecuciÃ³n
-  mun_entidad <- str_sub(string = DT$municipio_ejecucion, 
-               start = str_locate(string = DT$municipio_ejecucion, pattern = "-")[,1]+2, 
+  # Con este parte del codigo extraigo el municipio de ejecución
+  mun_entidad <- str_sub(string = SECOP_I$municipio_ejecucion, 
+               start = str_locate(string = SECOP_I$municipio_ejecucion, pattern = "-")[,1]+2, 
                end = -1L)
 }
 
 {# Se agregan las nuevas columnas----
+  #renombrar la columna que contiene depto-mun 
+  SECOP_I <- SECOP_I %>%  rename(depto_mun = "municipio_ejecucion")
   # Con este codigo se agregan las nuevas columnas de departamento y municipio
-  DT$municipio_ejecucion <- mun_entidad
-  DT$departamento_ejecucion <- depto_entidad
+  SECOP_I$municipio_ejecucion <- mun_entidad
+  SECOP_I$departamento_ejecucion <- depto_entidad
 }
-```
-
-Pasar departamentos y municipios de DT a mayúscula
-```{r}
-DT$departamento_ejecucion<-str_to_upper(DT$departamento_ejecucion, locale = "es")
-DT$municipio_ejecucion<-str_to_upper(DT$municipio_ejecucion, locale = "es")
-```
-
-Pasar las tildes a las no tildes (áéíóú) -> (aeiou)
-```{r}
-DT$departamento_ejecucion<-chartr('ÁÉÍÓÚ','AEIOU',DT$departamento_ejecucion)
-DT$municipio_ejecucion<-chartr('ÁÉÍÓÚ','AEIOU',DT$municipio_ejecucion)
 ```
 
 ## Ordenar por valor de contrato y analizar si puede existir alguno erroneo
 
 ```{r}
-DT %>%  summarise(ValorContratos= sum(valor_adiciones))
-DT %>%  summarise(ValorContratos= sum(valor_inicial))
-DT %>%  summarise(ValorContratos= sum(valor_total))
+SECOP_I %>%  summarise(ValorContratos= sum(valor_adiciones))
+SECOP_I %>%  summarise(ValorContratos= sum(valor_total_con_adiciones))
 ```
 
+Superan en billon de pesos (2)
 ```{r}
-DT %>%  filter(valor_total>=1000000000000) %>%  group_by(tipo_proceso) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) )
-```
-```{r}
-DT %>%  filter(valor_inicial >=1000000000000) %>%  group_by(tipo_proceso) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_inicial), ValorAdiciones = sum(valor_adiciones) )
-```
-```{r}
-DT %>%  filter(valor_adiciones >=1000000000000) %>%  group_by(tipo_proceso) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_adiciones), ValorAdiciones = sum(valor_adiciones) )
-```
-
-
-```{r}
-DT %>% group_by(estado_proceso) %>% summarise(Total=n(), Valores=sum(valor_total))
+SECOP_I %>%  filter(valor_total_con_adiciones>=1000000000000) %>%  
+  group_by(tipo_proceso) %>%  
+  summarise(CantidadContratos=n(),
+            ValorContratos= sum(valor_total_con_adiciones), 
+            ValorAdiciones = sum(valor_adiciones) )
 ```
 
-## VER VALORES DE SÓLO CONTRATACIÓN DIRECTA QUE SUPERAN EL BILLON DE PESOS, EN valor_total y valor_adiciones 
+Adiciones superan billon de pesos (0)
+```{r}
+SECOP_I %>%  filter(valor_adiciones >=1000000000000) %>%  group_by(tipo_proceso) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_adiciones), ValorAdiciones = sum(valor_adiciones) )
+```
+
+lhjjhjhjjh
+```{r}
+SECOP_I %>% group_by(estado_proceso) %>% 
+  summarise(Total=n(), 
+            Valores=sum(valor_total_con_adiciones))
+```
+
+## VER VALORES DE SÓLO CONTRATACIÓN DIRECTA QUE SUPERAN EL BILLON DE PESOS, EN valor_total y valor_adiciones
 
 Ver valores de contratación directa de forma general ANTES DE LIMPIAR LOS VALORES
 ```{r}
-DT  %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%  summarise(
-VInicial=sum(valor_inicial), VTotal=sum(valor_total), VAdiciones=sum(valor_adiciones))
+SECOP_I  %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% 
+  summarise( VTotal=sum(valor_total_con_adiciones), 
+             VAdiciones=sum(valor_adiciones),
+             contratos= n())
 ```
 
 Cuántos contratos por CONTRATACIÓN DIRECTA superan el billón de pesos???? 
 EL PIB SE COLOMBIA ES SÓLO DE 1*10^16
 ```{r}
-datatable(DT %>%  filter(valor_total>=1000000000000) %>%  group_by(anno_firma) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones) ))
+datatable(SECOP_I %>%  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & valor_total_con_adiciones>=1000000000000) %>%  
+            group_by(anno_firma) %>%  
+            summarise(CantidadContratos=n(),
+                      ValorContratos= sum(valor_total_con_adiciones),
+                      ValorAdiciones = sum(valor_adiciones)))
 ```
 CAUSAL CONTRATACIÓN DIRECTA
 ```{r}
-datatable(DT %>%  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & valor_total>=1000000000000) %>%  group_by(causal_cont_direct) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_total), ValorAdiciones = sum(valor_adiciones)) )
+datatable(SECOP_I %>%  
+            filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & valor_total_con_adiciones >= 1000000000000) %>% 
+            group_by(causa_otras_formas_contr_directa) %>%  
+            summarise(CantidadContratos=n(),
+                      ValorContratos= sum(valor_total_con_adiciones),
+                      ValorAdiciones = sum(valor_adiciones)))
+
+ # ERROR DE DIGITACIÓN prestación de servicio como auxiliar de enfermería en el centro de salud del corregimiento de machuca POR 9 MILLONES
 ```
 
-## REEMPLAZAR LOS VALORES DEL CONTRATO
+```{r}
+SECOP_I %>%  
+            filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & valor_total_con_adiciones >= 1000000000000) %>%   
+           dplyr::select(ruta_web)
+```
+
+
+## REEMPLAZAR LOS VALORES DEL CONTRATO (NO CORRER AÚN)
 Ver cada uno de esos datos que superan el billón de pesos
 ```{r}
 SuperBillonTotal<- DT %>%  filter(valor_total>=1000000000000)
@@ -384,86 +397,162 @@ datatable(DT %>% group_by(contratista) %>% summarise(Total= n()))
 ```
 PUESTO QUE LOS CONTRATOS NO APARENTAN SER DE CONTRATOS SENCILLOS, SE PODRÍA INFERIR QUE LAS ELEVADAS CIFRAS EN EL VALOR DE LOS CONTRATOS Y EN EL VALOR DE LAS ADICIONES SE PUEDE DEBER A ERRORES DE DIGITACIÓN
 
+
 # 3.CARACTERIZACIÓN ENTIDADES CONTRATANTES (HOSPITALES)
 ```{r}
-DT  %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%  summarise(
-sum(valor_total))
+SECOP_I  %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%  
+  summarise(total=sum(valor_total_con_adiciones))
 ```
 
-## GENERAL CON CONTRATACIÓN DIRECTA Y DEMÁS (nota: LO QUE NO SEA POR CONTRATACIÓN DIRECTA NO TIENE LIMPIOS LOS DATOS DE LOS VALORES DE LOS CONTRATOS)
+## GENERAL CON CONTRATACIÓN DIRECTA Y DEMÁS 
 Valor de cada año, por valor de contrato y por valor de adiciones
 ```{r}
-DT %>% group_by(anno_firma) %>% summarise(Cantidad_Contratos=n(), ValorContratos = sum(valor_total) , ValorAdiciones=sum(valor_adiciones)) 
+SECOP_I %>% group_by(anno_firma) %>% 
+  summarise(Cantidad_Contratos=n(),
+            ValorContratos = sum(valor_total_con_adiciones),
+            ValorAdiciones=sum(valor_adiciones)) 
 ```
-## CONTRATACIÓN DIRECTA Y DEMÁS
+
+HAY CONTRATOS HASTA EL 3/4/2020
+DEJARLOS O NO???
+```{r}
+datatable(SECOP_I %>% 
+            filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & anno_cargue == 2020) %>% 
+            dplyr::select(fecha_cargue_secop))
+```
+
+
+## CONTRATACIÓN GENERAL
+
 ### Por entidades 
 ```{r}
-ResumenGen<-DT %>%
+# no corrido
+ResumenGen<-SECOP_I %>%
   group_by(nombre_entidad) %>%
-  summarise(CantContratos=n(),Plazo=mean(plazo_ejec),VTotal=sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/VTotal)*100, PomedioValor=mean(valor_total))
+  summarise(CantContratos=n(),
+            Plazo=mean(plazo_ejec),
+            VTotal=sum(valor_total),
+            VAdiciones=sum(valor_adiciones),
+            PropAdiciones=(VAdiciones/VTotal)*100,
+            PomedioValor=mean(valor_total))
 ```
 
 ### Por entidades y tipo de proceso
 ```{r}
-ResGen_ToProce<-DT %>%
+# no corrido
+ResGen_ToProce<-SECOP_I %>%
   group_by(nombre_entidad,tipo_proceso) %>%
-  summarise(Plazo=mean(plazo_ejec),VTotal=sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/VTotal)*100)
+  summarise(Plazo=mean(plazo_ejec),
+            VTotal=sum(valor_total),
+            VAdiciones=sum(valor_adiciones),
+            PropAdiciones=(VAdiciones/VTotal)*100)
 ```
 
 ### Grupos de objeto a contratar
 ```{r}
-gruposGen <- DT %>% 
+# no corrido
+gruposGen <- SECOP_I %>% 
   group_by(nombre_grupo) %>% 
-  summarise(Total = n(), Valor = sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100) %>% 
+  summarise(Total = n(),
+            Valor = sum(valor_total),
+            VAdiciones=sum(valor_adiciones),
+            PropAdiciones=(VAdiciones/Valor)*100) %>% 
   arrange(desc(nombre_grupo))
-grupos_Gen_Obj_contr <- DT %>% 
-  group_by(nombre_grupo,objeto_contratar) %>% 
-  summarise(Total = n(), Valor = sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100) %>% 
+
+# no corrido
+grupos_Gen_Obj_contr <- SECOP_I %>% 
+  group_by(nombre_grupo, objeto_contratar) %>% 
+  summarise(Total = n(),
+            Valor = sum(valor_total),
+            VAdiciones=sum(valor_adiciones),
+            PropAdiciones=(VAdiciones/Valor)*100) %>% 
   arrange(desc(nombre_grupo))
 ```
 
 ### Lugares (Departamentos)
 ```{r}
-DeptosG <- DT %>% group_by(departamento_ejecucion) %>% 
-  summarise(Total = n(), Valor = sum(valor_total), VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/Valor)*100, PomedioValor=mean(valor_total))
+# no corrido
+DeptosG <- SECOP_I %>% 
+  group_by(departamento_ejecucion) %>% 
+  summarise(Total = n(),
+            Valor = sum(valor_total),
+            VAdiciones=sum(valor_adiciones),
+            PropAdiciones=(VAdiciones/Valor)*100,
+            PomedioValor=mean(valor_total))
 ```
 
 ### Serie de tiempo
 ```{r}
-#Convertir la columna de tipo caracter a tipo fecha d/m/y
-DT$fecha_firma <- dmy(DT$fecha_firma)
-
 #Crear tabla con los datos que se necesitan
-contratos_mes <- DT %>% 
-  group_by(year(fecha_firma), month(fecha_firma)) %>% 
+contratos_mes <- SECOP_I %>% 
+  group_by(year(fecha_firma_contrato), month(fecha_firma_contrato)) %>% 
   summarise(total = n()) 
 
 names(contratos_mes) <- c("anno", "mes", "total")
 
-contratos_mes$fecha = NA
-
 #Ajustar la tabla a formato necesario para la gráfica
-for(i in 1:nrow(contratos_mes)){
-  contratos_mes[i,4] = paste("01",contratos_mes[i,2], contratos_mes[i,1], sep = "-")
-}
-
+contratos_mes$fecha <- paste("01", contratos_mes$mes, contratos_mes$anno, sep = "-")
 contratos_mes$fecha <- dmy(contratos_mes$fecha)
 
 #Generar gráficos
-p1 <- ggplot(contratos_mes, aes(x = fecha, y = total)) + geom_line() + theme(axis.text.x = element_text(angle = 45)) + scale_x_date(date_breaks = "1 year", date_labels = "%b %y", minor_breaks = as.Date("2017-01-02")) 
-  #geom_vline(xintercept = as.Date("2017-10-01"),color="red")
+p1 <- ggplot(contratos_mes,
+             aes(x = fecha, y = total)) + 
+  geom_line() + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  scale_x_date(date_breaks = "1 year", 
+               date_labels = "%b %y",
+               minor_breaks = as.Date("2017-01-02")) +
+  ggtitle("Comportamiento general de la contratación") +
+  theme(plot.title = element_text(hjust = 0.5))
+  # Falta agregar las líneas verticales de la ley de garantías
+
 ggplotly(p1)
 
+#guardar el gráfico como imagen .png
 ggsave(filename = "linea_tiempo.png",plot = p1,device = "png")
 ```
 
 ## CONTRATACIÓN DIRECTA
 
-### Por entidades
+¿Qué porcentaje representa la contratación directa tanto en cantidad de contratos como en el valor total de los mismos, con y sin adiciones para los departamentos, municipios y entidades?
+
+general
 ```{r}
-ResumenGDirecta<-DT %>% filter(DT$tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+# GENERAR LA BASE DE DATOS DE CONTRATACION DIRECTA
+secop_directa <- SECOP_I %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)")
+  
+ResumenGDirecta<- secop_directa %>% 
   group_by(nombre_entidad) %>%
-  summarise(CantContratos=n(),Plazo=mean(plazo_ejec),VTotal=sum(valor_total),VAdiciones=sum(valor_adiciones),PropAdiciones=(VAdiciones/VTotal)*100, PomedioValor=mean(valor_total)) 
+  summarise(Contratos = n(),
+            Plazo = mean(plazo_ejec_dias),
+            Ejecutado = mean(plazo_ejec_calc),
+            Valor_Total = sum(valor_total_con_adiciones),
+            Valor_Adiciones = sum(valor_adiciones),
+            Proporcion_Adiciones = (Valor_Adiciones/Valor_Total)*100,
+            Valor_Promedio = mean(valor_total_con_adiciones)) 
+
+```
+
+HASTA AQUÍ LLEGUÉ
+```{r}
+#departamentos
+total_contratos <- SECOP_I %>% 
+  group_by(departamento_ejecucion) %>% 
+  summarise(contratos = n())
+
+total_contratos_directos <- SECOP_I %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% 
+  group_by(departamento_ejecucion) %>% 
+  summarise(contratos_directos = n())
+
+deptos <- merge(total_contratos,
+                total_contratos_directos,
+                by = "departamento_ejecucion",
+                all.y = TRUE) %>% 
+  mutate(prop_directa = as.numeric(sprintf("%.2f", 
+                                (contratos_directos / contratos)*100)))
+
 ```
 
 PROPORCIÓN DE CONTRATOS DIRECTOS POR ENTIDAD
@@ -471,9 +560,6 @@ PROPORCIÓN DE CONTRATOS DIRECTOS POR ENTIDAD
 TotalContratos_Entidad <- DT %>% group_by(nombre_entidad) %>% summarise(CantContratos=n()) 
 TotalContratos_Directos <- DT %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% group_by(nombre_entidad) %>% summarise(ContratosDirectos=n())
 Directa_Entidad <- merge(TotalContratos_Entidad,TotalContratos_Directos, by.x = "nombre_entidad", by.y = "nombre_entidad")
-
-#TotalContratos_Entidad$Directos  <- ifelse(TotalContratos_Directos$nombre_entidad %in% TotalContratos_Entidad$nombre_entidad, 1, NA)
-#Proporcion_Directa_Entidad <- cbind(TotalContratos_Entidad$CantContratos:TotalContratos_Directos$Total)
 ```
 
 Cálculo de proporción de contratación directa por cada entidad
