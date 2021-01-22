@@ -539,12 +539,15 @@ HASTA AQUÍ LLEGUÉ
 #departamentos
 total_contratos <- SECOP_I %>% 
   group_by(departamento_ejecucion) %>% 
-  summarise(contratos = n())
+  summarise(contratos = n(),
+            valor_contratos = sum(valor_total_con_adiciones),
+            adiciones = sum(valor_adiciones)) 
 
 total_contratos_directos <- SECOP_I %>% 
   filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% 
   group_by(departamento_ejecucion) %>% 
-  summarise(contratos_directos = n())
+  summarise(contratos_directos = n(),
+            adiciones_directa = sum(valor_adiciones))
 
 deptos <- merge(total_contratos,
                 total_contratos_directos,
@@ -553,8 +556,48 @@ deptos <- merge(total_contratos,
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
 
-#falta agregar las adiciones y la concentración de contratos, pero primero hay que analizar las distribuciones estadísticas de esas variables para sacarles una media o una mediana.
+## ADICIONES
+contratos_adiciones <- SECOP_I %>% 
+  filter(valor_adiciones > 0) %>% 
+  count(departamento_ejecucion) %>% 
+  rename("contratos_adiciones" = n)
 
+contratos_adiciones_directa <- SECOP_I %>% 
+  filter(valor_adiciones > 0 & 
+           tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  count(departamento_ejecucion) %>% 
+  rename("contratos_adiciones_dir" = n)
+
+deptos_adiciones <- merge(contratos_adiciones,
+                          contratos_adiciones_directa,
+                          all.x = T) %>% 
+  mutate(prop_cont_dir_adic = as.numeric(sprintf("%.2f",
+                                                (contratos_adiciones_dir / contratos_adiciones)*100)))
+
+# Función de cambio de los NA por ceros
+cambio_na = function(x){
+  ifelse(is.na(x),0,x)
+}
+
+# Cambiar nos NA por ceros
+deptos_adiciones <- data.frame(
+  sapply(deptos_adiciones,
+         cambio_na) )
+
+# convertir a  numércias las columnas 
+deptos_adiciones$contratos_adiciones <- as.numeric(deptos_adiciones$contratos_adiciones)
+deptos_adiciones$contratos_adiciones_dir <- as.numeric(deptos_adiciones$contratos_adiciones_dir)
+deptos_adiciones$prop_cont_dir_adic <- as.numeric(deptos_adiciones$prop_cont_dir_adic)
+
+# agregar las adiciones a la tabla de informacion departamental
+
+deptos <- merge(deptos,
+                deptos_adiciones,
+                by = "departamento_ejecucion",
+                all.x = TRUE)
+
+# HASTA AQUÍ LLEGUÉ
+# FALTA ORDENAR LAS COLUMNAS 
 ```
 
 
