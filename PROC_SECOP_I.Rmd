@@ -596,8 +596,23 @@ deptos <- merge(deptos,
                 by = "departamento_ejecucion",
                 all.x = TRUE)
 
-# HASTA AQUÍ LLEGUÉ
-# FALTA ORDENAR LAS COLUMNAS 
+deptos <- deptos %>% 
+  mutate(prop_dir_adic = as.numeric(sprintf("%.2f", 
+                                           (adiciones_directa / adiciones)*100)))
+
+# crear el vector que determina el orden en que quiero ver las variables
+orden <- c("departamento_ejecucion", "contratos", "contratos_directos", "prop_directa",
+           "contratos_adiciones", "contratos_adiciones_dir", "prop_cont_dir_adic",
+           "valor_contratos","adiciones", "adiciones_directa", "prop_dir_adic" )
+
+# ordenar la tabla de acuerdo a como se quiere
+deptos <- deptos %>% 
+              dplyr::select(all_of(orden))
+
+# eliminar registro de San Andrés, providencia y santa catalina
+deptos <- deptos[deptos$departamento_ejecucion != "San Andrés, Providencia y Santa Catalina", ]
+
+# LISTO ESTO POR DEPARTAMENTOS
 ```
 
 
