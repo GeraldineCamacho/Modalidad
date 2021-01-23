@@ -15,12 +15,10 @@ Leer base de datos
 SECOP_I <- read_delim("secop_i_ips_limpia.csv", ";", 
                       escape_double = FALSE, trim_ws = TRUE)
 ```
-```{r}
 nombre_entidad	nit_entidad	orden_entidad	departamento_entidad	municipio_entidad
 total_contratos	valor_total	valor_mediana	valor_promedio	valor_desviacion	perc_adic_valor	perc_adic_tiempo	perc_contr_directa_num	perc_contr_direct_val	HHI_cant	HHI_val	ID_cant	ID_val	ganadoras	IC4K_cant	IC4K_val	ind_riesgo_corrupcion
 
-```
-Seeleccionar Columnas
+Seleccionar Columnas
 ```{r cargar datos}
 # Cargar datos
 contratos <- SECOP_I %>% select(nombre_entidad, tipo_proceso, tipo_contrato,                                                                           cuantia_contrato, id_contratista,
