@@ -7,6 +7,7 @@ output: html_document
 ```{r librerias y configuracion, echo=FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = "center")
 library(tidyverse)
+library(dplyr)
 
 ```
 
@@ -18,12 +19,103 @@ SECOP_I <- read_delim("secop_i_ips_limpia.csv", ";",
 nombre_entidad	nit_entidad	orden_entidad	departamento_entidad	municipio_entidad
 total_contratos	valor_total	valor_mediana	valor_promedio	valor_desviacion	perc_adic_valor	perc_adic_tiempo	perc_contr_directa_num	perc_contr_direct_val	HHI_cant	HHI_val	ID_cant	ID_val	ganadoras	IC4K_cant	IC4K_val	ind_riesgo_corrupcion
 
+
+***********
+Arreglo datos adiciones ----
+
+Se aplica el siguiente filtro:
+
+- Contratos de mas de 10 millones.
+- Entidades con mínimo 3 contratos
+
+```{r quitar prestacion de servicios}
+# Quitar contratos de prestación de servicios
+contratos <- contratos %>% 
+  filter(cuantia_contrato >= 1e7)
+
+# Consultar las entidades con menos de 10 contratos 
+entidades_del <- contratos %>% 
+  group_by(nombre_entidad) %>% 
+  summarise(contratos = n()) %>% 
+  filter(contratos < 3)
+
+# Quitar las entidades con menos de 10 contratos
+contratos <- contratos %>% 
+  filter(!(nombre_entidad %in% entidades_del$nombre_entidad))
+```
+
 Seleccionar Columnas
 ```{r cargar datos}
 # Cargar datos
-contratos <- SECOP_I %>% select(nombre_entidad, tipo_proceso, tipo_contrato,                                                                           cuantia_contrato, id_contratista,
-                                   objeto_contratar, detalle_objeto_contratar, ruta_web)
-#distinct()
+contratos <- SECOP_I %>% select(nombre_entidad, nit_entidad, orden_entidad, departamento_entidad, municipio_entidad) %>% distinct()
 
 ```
+
+total_contratos	
+```{r}
+temp <- SECOP_I %>%
+  group_by(nombre_entidad, nit_entidad, orden_entidad, departamento_entidad, municipio_entidad) %>% 
+  summarise(total_contratos	 = n(), 
+            valor_total = sum(valor_total_con_adiciones), 
+            valor_mediana	= median(valor_total_con_adiciones),
+            valor_promedio = mean(valor_total_con_adiciones),
+            valor_desviacion = sd(valor_total_con_adiciones), .groups = 'drop', na.rm=TRUE)
+
+```
+
+
+perc_adic_valor	
+```{r}
+ temp <- contratos %>%
+      group_by(nombre_entidad) %>%
+      summarise(perc_valor_adiciones = mean((valor_adiciones/valor_inicial),na.rm = TRUE) * 100) %>% 
+      mutate(max_valor_adiciones= max(perc_valor_adiciones),
+             ind_valor_adiciones = (perc_valor_adiciones/max_valor_adiciones)*100) %>% 
+      select(nombre_entidad, perc_valor_adiciones, ind_valor_adiciones )
+    
+        
+    # Agrupar los indicadores en una sola tabla
+    indicadoresE <- indicadoresE %>% 
+      left_join(y = temp, by = "nombre_entidad")
+    
+    rm(temp)
+```
+
+
+perc_adic_tiempo
+```{r}
+temp <- contratos %>%
+    group_by(nombre_entidad) %>%
+    summarise( perc_tiempo_adiciones = sum(( adiciones_dias >= "1" || adiciones_dias >= "1")/n(),na.rm = TRUE)*100)
+          
+    # Agrupar los indicadores en una sola tabla
+    indicadoresE <- indicadoresE %>% 
+      left_join(y = temp, by = "nombre_entidad")
+    rm(temp)
+```
+
+
+perc_contr_directa_num
+perc_contr_direct_val	
+
+perc_contr_abierta_num
+perc_contr_cerrada_num
+
+
+HHI_cant	
+HHI_val	
+
+ID_cant
+ID_val
+
+ganadoras	
+
+IC4K_cant	
+IC4K_val	
+
+ind_riesgo_corrupcion
+
+
+
+
 
