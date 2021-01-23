@@ -534,7 +534,7 @@ ResumenGDirecta<- secop_directa %>%
 
 ```
 
-HASTA AQUÍ LLEGUÉ
+### Departamentos 
 ```{r}
 #departamentos
 total_contratos <- SECOP_I %>% 
@@ -614,6 +614,90 @@ deptos <- deptos[deptos$departamento_ejecucion != "San Andrés, Providencia y Sa
 
 # LISTO ESTO POR DEPARTAMENTOS
 ```
+
+### Municipios
+```{r}
+#departamentos
+total_contratos <- SECOP_I %>% 
+  group_by(municipio_ejecucion) %>% 
+  summarise(contratos = n(),
+            valor_contratos = sum(valor_total_con_adiciones),
+            adiciones = sum(valor_adiciones)) 
+
+ # REVISAR PORQUE MUNICIPIO EJECUCION NO ESTÁ DANDO LO QUE QUIERO
+
+total_contratos_directos <- SECOP_I %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>% 
+  group_by(departamento_ejecucion) %>% 
+  summarise(contratos_directos = n(),
+            adiciones_directa = sum(valor_adiciones))
+
+deptos <- merge(total_contratos,
+                total_contratos_directos,
+                by = "departamento_ejecucion",
+                all.y = TRUE) %>% 
+  mutate(prop_directa = as.numeric(sprintf("%.2f", 
+                                (contratos_directos / contratos)*100)))
+
+## ADICIONES
+contratos_adiciones <- SECOP_I %>% 
+  filter(valor_adiciones > 0) %>% 
+  count(departamento_ejecucion) %>% 
+  rename("contratos_adiciones" = n)
+
+contratos_adiciones_directa <- SECOP_I %>% 
+  filter(valor_adiciones > 0 & 
+           tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  count(departamento_ejecucion) %>% 
+  rename("contratos_adiciones_dir" = n)
+
+deptos_adiciones <- merge(contratos_adiciones,
+                          contratos_adiciones_directa,
+                          all.x = T) %>% 
+  mutate(prop_cont_dir_adic = as.numeric(sprintf("%.2f",
+                                                (contratos_adiciones_dir / contratos_adiciones)*100)))
+
+# Función de cambio de los NA por ceros
+cambio_na = function(x){
+  ifelse(is.na(x),0,x)
+}
+
+# Cambiar nos NA por ceros
+deptos_adiciones <- data.frame(
+  sapply(deptos_adiciones,
+         cambio_na) )
+
+# convertir a  numércias las columnas 
+deptos_adiciones$contratos_adiciones <- as.numeric(deptos_adiciones$contratos_adiciones)
+deptos_adiciones$contratos_adiciones_dir <- as.numeric(deptos_adiciones$contratos_adiciones_dir)
+deptos_adiciones$prop_cont_dir_adic <- as.numeric(deptos_adiciones$prop_cont_dir_adic)
+
+# agregar las adiciones a la tabla de informacion departamental
+
+deptos <- merge(deptos,
+                deptos_adiciones,
+                by = "departamento_ejecucion",
+                all.x = TRUE)
+
+deptos <- deptos %>% 
+  mutate(prop_dir_adic = as.numeric(sprintf("%.2f", 
+                                           (adiciones_directa / adiciones)*100)))
+
+# crear el vector que determina el orden en que quiero ver las variables
+orden <- c("departamento_ejecucion", "contratos", "contratos_directos", "prop_directa",
+           "contratos_adiciones", "contratos_adiciones_dir", "prop_cont_dir_adic",
+           "valor_contratos","adiciones", "adiciones_directa", "prop_dir_adic" )
+
+# ordenar la tabla de acuerdo a como se quiere
+deptos <- deptos %>% 
+              dplyr::select(all_of(orden))
+
+# eliminar registro de San Andrés, providencia y santa catalina
+deptos <- deptos[deptos$departamento_ejecucion != "San Andrés, Providencia y Santa Catalina", ]
+
+# LISTO ESTO POR DEPARTAMENTOS
+```
+
 
 
 PROPORCIÓN DE CONTRATOS DIRECTOS POR ENTIDAD
