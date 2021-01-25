@@ -13,7 +13,7 @@ library(dplyr)
 
 Leer base de datos
 ```{r}
-SECOP_I <- read_delim("secop_i_ips_limpia.csv", ";", 
+SECOP <- read_delim("secop_i_ips_limpia.csv", ";", 
                       escape_double = FALSE, trim_ws = TRUE)
 ```
 nombre_entidad	nit_entidad	orden_entidad	departamento_entidad	municipio_entidad
@@ -29,9 +29,9 @@ Se aplica el siguiente filtro:
 - Entidades con mínimo 3 contratos
 
 ```{r quitar prestacion de servicios}
-# Quitar contratos de prestación de servicios
-contratos <- contratos %>% 
-  filter(cuantia_contrato >= 1e7)
+# Quitar contratos con valor menor a 1 millon 
+SECOP_I <- SECOP_I %>% 
+  filter(cuantia_contrato >= 1e6)
 
 # Consultar las entidades con menos de 10 contratos 
 entidades_del <- contratos %>% 
@@ -51,24 +51,60 @@ contratos <- SECOP_I %>% select(nombre_entidad, nit_entidad, orden_entidad, depa
 
 ```
 
-total_contratos	
+total_contratos	valor_total	valor_mediana	valor_promedio	valor_desviacion
 ```{r}
-temp <- SECOP_I %>%
+Indicadores <- SECOP_I %>%
   group_by(nombre_entidad, nit_entidad, orden_entidad, departamento_entidad, municipio_entidad) %>% 
   summarise(total_contratos	 = n(), 
-            valor_total = sum(valor_total_con_adiciones), 
-            valor_mediana	= median(valor_total_con_adiciones),
-            valor_promedio = mean(valor_total_con_adiciones),
-            valor_desviacion = sd(valor_total_con_adiciones), .groups = 'drop', na.rm=TRUE)
+            inicial = sum(cuantia_contrato, na.rm = TRUE),
+            valor_total = sum(valor_total_con_adiciones, na.rm = TRUE), 
+            adiciones = sum(valor_adiciones, na.rm = TRUE), 
+            valor_mediana	= median(valor_total_con_adiciones, na.rm = TRUE),
+            valor_promedio = mean(valor_total_con_adiciones, na.rm = TRUE),
+            valor_desviacion = sd(valor_total_con_adiciones, na.rm = TRUE), .groups = 'drop')
+```
+perc_valor_adiciones
+
+
+-820003580
+-860009555
+```{r}
+temp <- SECOP_I %>%
+  filter(cuantia_contrato > 0, !is.na(cuantia_contrato)) %>% 
+  group_by(nit_entidad) %>% 
+  summarise(perc_valor_adiciones = mean((valor_adiciones/cuantia_contrato)), .groups = 'drop')
 
 ```
+
+```{r}
+# Agrupar los indicadores en una sola tabla
+Indicadores <- Indicadores %>% 
+  left_join(y = temp, by = "nit_entidad") %>% 
+  mutate(perc_valor_adiciones = ifelse(is.na(perc_valor_adiciones), 0, perc_valor_adiciones))
+rm(temp)
+```
+
+
+```{r}
+# Agrupar los indicadores en una sola tabla
+Indicadores <- Indica %>% 
+  left_join(y = temp, by = "nit_entidad") %>% 
+  mutate(perc_valor_adiciones = ifelse(is.na(perc_valor_adiciones), 0, perc_valor_adiciones))
+rm(temp)
+```
+
+
+
+
+
+
 
 
 perc_adic_valor	
 ```{r}
- temp <- contratos %>%
+ temp <- SECOP_I %>%
       group_by(nombre_entidad) %>%
-      summarise(perc_valor_adiciones = mean((valor_adiciones/valor_inicial),na.rm = TRUE) * 100) %>% 
+      summarise(perc_valor_adiciones = mean((valor_adiciones/),na.rm = TRUE) * 100) %>% 
       mutate(max_valor_adiciones= max(perc_valor_adiciones),
              ind_valor_adiciones = (perc_valor_adiciones/max_valor_adiciones)*100) %>% 
       select(nombre_entidad, perc_valor_adiciones, ind_valor_adiciones )
