@@ -42,6 +42,7 @@ opts_chunk$set(warning = FALSE, message = FALSE)
 
 Lee base de datos
 ```{r}
+## LEIDO
 SECOP_I <- read_delim("secop_i_ips_limpia.csv", ";", 
                       escape_double = FALSE, trim_ws = TRUE)
 ```
@@ -69,6 +70,7 @@ participacion<-read_delim(file ="DEPTOPARTICIPACIONCIUDADANACSV.csv", delim = ";
 # 2.LIMPIEZA
 Se filtran los datos de los años 2014 en adelante
 ```{r}
+## LEIDO
 SECOP_I <- SECOP_I %>% filter((anno_cargue >= 2014 & 
                                anno_firma >= 2014 &
                                anno_firma < 2020))
@@ -78,6 +80,7 @@ Inicialmente se tienen `r dim(SECOP_I)[1]` contratos.
 
 ## Sacar los NAs de plazo_ejec_calculado por no tener adjudicacion
 ```{r}
+## LEIDO Y ELIMINA 1
 SECOP_I$plazo_ejec_calc <- SECOP_I$fecha_fin_ejec_contrato - SECOP_I$fecha_inicio_ejec_contrato
 SECOP_I$plazo_ejec_calc <- as.integer(SECOP_I$plazo_ejec_calc)
 SECOP_I <- SECOP_I %>% filter(!is.na(plazo_ejec_calc))
@@ -87,9 +90,10 @@ Al quitar los datos faltantes en el plazo de ejecución se tienen `r dim(SECOP_I
 
 ```{r}
 summary(SECOP_I$plazo_ejec_calc)
+hist(SECOP_I$plazo_ejec_calc)
 ```
 
-Hay 235 contratos que tienen mas de 4 años en plazo de ejecución. **¿Se deben considerar?**
+Hay 229 contratos que tienen mas de 4 años en plazo de ejecución. **¿Se deben considerar?**
 
 ```{r}
 sum(SECOP_I$plazo_ejec_calc >= (365*4))
@@ -98,6 +102,7 @@ sum(SECOP_I$plazo_ejec_calc >= (365*4))
 Se verifica la diferencia entre el plazo de ejecución calculado y el plazo de ejecución registrado
 
 ```{r}
+## LEIDO
 SECOP_I <- SECOP_I %>% 
   mutate(plazo_ejec_dias = case_when(
     rango_ejec_contrato == "D" ~ plazo_ejec_contrato, 
@@ -120,6 +125,7 @@ ggplot(data = data.frame(dif = dif_plazo), aes(x = log(dif))) + geom_histogram()
 #as.numeric(SECOP_I$valor_total)
 sum(SECOP_I$valor_total_con_adiciones)
 sum(SECOP_I$valor_adiciones)
+##hasta aqui llegué
 ```
 
 ## Convenios interadministativos
