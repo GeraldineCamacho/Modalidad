@@ -632,21 +632,28 @@ deptos <- deptos[deptos$departamento_ejecucion != "San Andrés, Providencia y Sa
 
 ### Municipios
 ```{r}
+#generar la llave para el join
+SECOP_I <- unite(SECOP_I,
+                 depto_mun, 
+                 c("departamento_entidad", "municipio_entidad"),
+                 sep = " - ",
+                 remove = FALSE)
+
 #municipios
 total_contratos <- SECOP_I %>% 
-  group_by(municipio_entidad) %>% 
+  group_by(depto_mun) %>% 
   summarise(contratos = n(),
             valor_contratos = sum(valor_total_con_adiciones),
             adiciones = sum(valor_adiciones)) 
 
 total_contratos_directos <- secop_directa %>%
-  group_by(municipio_entidad) %>% 
+  group_by(depto_mun) %>% 
   summarise(contratos_directos = n(),
             adiciones_directa = sum(valor_adiciones))
 
 municipios <- merge(total_contratos,
                 total_contratos_directos,
-                by = "municipio_entidad",
+                by = "depto_mun",
                 all.y = TRUE) %>% # porque me interesan solo los hospitales con contratos directos
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
@@ -654,16 +661,17 @@ municipios <- merge(total_contratos,
 ## ADICIONES
 contratos_adiciones <- SECOP_I %>% 
   filter(valor_adiciones > 0) %>% 
-  count(municipio_entidad) %>% 
+  count(depto_mun) %>% 
   rename("contratos_adiciones" = n)
 
 contratos_adiciones_directa <- secop_directa %>% 
   filter(valor_adiciones > 0) %>%
-  count(municipio_entidad) %>% 
+  count(depto_mun) %>% 
   rename("contratos_adiciones_dir" = n)
 
 municipios_adiciones <- merge(contratos_adiciones,
                           contratos_adiciones_directa,
+                          by = "depto_mun",
                           all.x = T) %>% 
   mutate(prop_cont_dir_adic = as.numeric(sprintf("%.2f",
                                                 (contratos_adiciones_dir / contratos_adiciones)*100)))
@@ -685,7 +693,7 @@ municipios_adiciones$prop_cont_dir_adic <- as.numeric(municipios_adiciones$prop_
 
 municipios <- merge(municipios,
                 municipios_adiciones,
-                by = "municipio_entidad",
+                by = "depto_mun",
                 all.x = TRUE)
 
 municipios <- municipios %>% 
@@ -693,9 +701,9 @@ municipios <- municipios %>%
                                            (adiciones_directa / adiciones)*100))) #con esto queda con 11 columnas
 
 # crear el vector que determina el orden en que quiero ver las variables
-orden_mun <- c("municipio_entidad", "contratos", "contratos_directos", "prop_directa",
-           "contratos_adiciones", "contratos_adiciones_dir", "prop_cont_dir_adic",
-           "valor_contratos","adiciones", "adiciones_directa", "prop_dir_adic" )
+orden_mun <- c("depto_mun", "contratos", "contratos_directos", "prop_directa",
+               "contratos_adiciones", "contratos_adiciones_dir", "prop_cont_dir_adic",
+               "valor_contratos","adiciones", "adiciones_directa", "prop_dir_adic" )
 
 # ordenar la tabla de acuerdo a como se quiere
 municipios <- municipios %>% 
@@ -708,11 +716,18 @@ municipios <- data.frame(sapply(municipios, cambio_na))
 # nombres_orden<- paste(orden, "depto", sep = "_")
 ```
 
+```{r}
+datatable(SECOP_I %>% group_by(municipio_entidad) %>% count())
+datatable(SECOP_I %>% group_by(municipio_ejecucion) %>% count())
+datatable(SECOP_I %>% group_by(depto_mun) %>% count())
+datatable(secop_directa %>% group_by(depto_mun) %>% count())
+```
+
 ### Entidades (Hospitales)
 ```{r}
 #entidades
 total_contratos <- SECOP_I %>% 
-  group_by(nombre_entidad) %>% #examinar si es mejor utilizar nombre_entidad_mod
+  group_by(nombre_entidad, departamento_entidad, depto_mun) %>% #examinar si es mejor utilizar nombre_entidad_mod
   summarise(contratos = n(),
             valor_contratos = sum(valor_total_con_adiciones),
             adiciones = sum(valor_adiciones)) 
@@ -771,9 +786,10 @@ hospitales <- hospitales %>%
                                            (adiciones_directa / adiciones)*100))) # con esto queda con 11 columnas
 
 # crear el vector que determina el orden en que quiero ver las variables
-orden_hos <- c("nombre_entidad", "contratos", "contratos_directos", "prop_directa",
-           "contratos_adiciones", "contratos_adiciones_dir", "prop_cont_dir_adic",
-           "valor_contratos","adiciones", "adiciones_directa", "prop_dir_adic" )
+orden_hos <- c("nombre_entidad", "departamento_entidad", "depto_mun", 
+               "contratos", "contratos_directos", "prop_directa",
+               "contratos_adiciones", "contratos_adiciones_dir", "prop_cont_dir_adic",
+               "valor_contratos","adiciones", "adiciones_directa", "prop_dir_adic" )
 
 # ordenar la tabla de acuerdo a como se quiere
 hospitales <- hospitales %>% 
@@ -790,7 +806,7 @@ hospitales <- data.frame(sapply(hospitales, cambio_na))
 
 ```{r}
 #modificar nombres de columnas de cada taba
-#deto
+#depto
 nombres_orden<- paste(orden_depto, "depto", sep = "_")
 names(deptos) <- nombres_orden
 
@@ -802,8 +818,19 @@ names(municipios) <- nombres_orden
 nombres_orden <- paste(orden_hos, "hos", sep = "_")
 names(hospitales) <- nombres_orden
 
-# unir los detaprtamentos a los hospitales ¿CUÁL ES LA LLAVE DE UNIÓN??
-entidades <- hospitales %>% 
+# unir los municipios a los hospitales
+entidades <- merge(hospitales, municipios, 
+                   by.x = "depto_mun_hos",
+                   by.y = "depto_mun_mun",
+                   all.x = TRUE)
+
+# unir los departamentos a los hospitales
+entidades <- merge(entidades, deptos,
+                   by.x = "departamento_entidad_hos",
+                   by.y = "departamento_ejecucion_depto",
+                   all.x = TRUE)
+
+entidades$departamento_entidad_hos <- NULL
   ## HACER SPLIT DEL NOMBRE DE LA ENTIDAD PARA SACAR EL DEPTO Y LUEGO PASAR TODO A MUNUSCULAS (EN AMBAS TABLAS PARA HACER EL JOIN)
 ```
 
