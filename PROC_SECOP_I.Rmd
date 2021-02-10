@@ -831,7 +831,9 @@ entidades <- merge(entidades, deptos,
                    all.x = TRUE)
 
 entidades$departamento_entidad_hos <- NULL
-  ## HACER SPLIT DEL NOMBRE DE LA ENTIDAD PARA SACAR EL DEPTO Y LUEGO PASAR TODO A MUNUSCULAS (EN AMBAS TABLAS PARA HACER EL JOIN)
+
+# Escribir el .csv
+write.csv(entidades, file = "entidades.csv", row.names = TRUE)
 ```
 
 pasar proporcion de entidades a numérico
