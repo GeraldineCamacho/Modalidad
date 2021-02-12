@@ -46,21 +46,24 @@ indicadores_gen$nombre_entidad <- NULL
 #indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
 indicadores_gen$orden_entidad <- as.factor(indicadores_gen$orden_entidad)
 indicadores_gen$departamento_entidad <- as.factor(indicadores_gen$departamento_entidad)
+
+# eliminar la columna de los deptos porque no es importante
+indicadores_gen$departamento_entidad <- NULL
 ```
 
 División de los datos en train y test
 ```{r}
 set.seed(123)
-indicadores_gen_split <- initial_split(indicadores_gen, strata = perc_contr_directa_num)
+indicadores_gen_split <- initial_split(indicadores_gen, strata = perc_contr_direct_val)
 indicadores_gen_train <- training(indicadores_gen_split)
 indicadores_gen_test <- testing(indicadores_gen_split)
 ```
 
 Procesamiento y preparación de variables
 ```{r}
-indicadores_gen_rec <- recipe(perc_contr_directa_num ~ ., data = indicadores_gen) %>% 
+indicadores_gen_rec <- recipe(perc_contr_direct_val ~ ., data = indicadores_gen) %>% 
   #update_role(nombre_entidad, new_role = "ID") %>% 
-  step_normalize(all_numeric(), -perc_contr_directa_num) %>% 
+  step_normalize(all_numeric(), -perc_contr_direct_val) %>% 
   step_dummy(all_nominal(), one_hot = TRUE)
 
 indicadores_gen_rec
@@ -188,7 +191,7 @@ test_predictions_reg
 ```
 Grafico con las predicciones
 ```{r}
-ggplot(test_predictions_reg, aes(perc_contr_directa_num, .pred)) +
+ggplot(test_predictions_reg, aes(perc_contr_direct_val, .pred)) +
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) +
   ggtitle("Valor real (contratación directa) Vs predicción (.pred)")
