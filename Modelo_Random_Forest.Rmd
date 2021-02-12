@@ -23,7 +23,9 @@ library(knitr)
 
 # Modelo Random Forest 
 
-## Preprocesamiento de los datos
+## Random Forest por regresión
+
+### Preprocesamiento de los datos
 
 Lectura de los datos
 ```{r}
@@ -47,23 +49,28 @@ indicadores_gen$nombre_entidad <- NULL
 indicadores_gen$orden_entidad <- as.factor(indicadores_gen$orden_entidad)
 indicadores_gen$departamento_entidad <- as.factor(indicadores_gen$departamento_entidad)
 
-# eliminar la columna de los deptos porque no es importante
-indicadores_gen$departamento_entidad <- NULL
+# eliminar la columna de los deptos porque no es importante 
+#indicadores_gen$departamento_entidad <- NULL
+# cuando se elimina los departamentos el r cuadrado baja
+
+
+# ver si el modelo hace un mejor trabajo solo con los que tienen contr directa >0
+#indicadores_gen <- indicadores_gen %>% filter(perc_contr_directa_num>0)
 ```
 
 División de los datos en train y test
 ```{r}
 set.seed(123)
-indicadores_gen_split <- initial_split(indicadores_gen, strata = perc_contr_direct_val)
+indicadores_gen_split <- initial_split(indicadores_gen, strata = perc_contr_directa_num)
 indicadores_gen_train <- training(indicadores_gen_split)
 indicadores_gen_test <- testing(indicadores_gen_split)
 ```
 
 Procesamiento y preparación de variables
 ```{r}
-indicadores_gen_rec <- recipe(perc_contr_direct_val ~ ., data = indicadores_gen) %>% 
+indicadores_gen_rec <- recipe(perc_contr_directa_num ~ ., data = indicadores_gen) %>% 
   #update_role(nombre_entidad, new_role = "ID") %>% 
-  step_normalize(all_numeric(), -perc_contr_direct_val) %>% 
+  step_normalize(all_numeric(), -perc_contr_directa_num) %>% 
   step_dummy(all_nominal(), one_hot = TRUE)
 
 indicadores_gen_rec
@@ -78,7 +85,8 @@ indicadores_gen_train_prep <- indicadores_gen_rec %>%
 head(indicadores_gen_train_prep)
 ```
 
-## Configurar el modelo por regresión
+### Configurar el modelo
+
 La librería a usar es 'Parsnip'que ofrece una interfaz unificada para la gran variedad de modelos de machine learning que existen en R. Esto significa que solo tiene que utilizar una forma estandar para configurar un modelo, y puede usar esta configuración diferentes tipos de modelos: Módelo Lineal, Ridge, Lasso, Random Forest, Regresión Logística, Arboles, Support Vector Machine, entre otros.
 ```{r}
 indicadores_gen_rf <- rand_forest() %>% 
@@ -89,7 +97,7 @@ indicadores_gen_rf <- rand_forest() %>%
 
 indicadores_gen_rf %>% translate()
 ```
-## Definir el workflow
+### Definir el workflow
 
 El flujo de trabajo permite integrar todas las tareas que se estan desarrollando para entrenar el modelo de machine learning.
 ```{r}
@@ -100,7 +108,7 @@ rf_workflow_reg <- workflow() %>%
 rf_workflow_reg
 ```
 
-## Calibración de parámetros
+### Calibración de parámetros
 
 Para calibrar los parametros se utiliza el metodo de validación cruzada. Este procedimiento tiene como proposito encontrar los parametros optimos del modelo o algoritmo.
 ```{r}
@@ -158,7 +166,7 @@ param_final_reg <- rf_tune_results_reg %>%
 param_final_reg
 ```
 
-## Validación del modelo final
+### Validación del modelo final
 
 En primer lugar se agregan los parametros calibrado al flujo de trabajo.
 ```{r}
@@ -191,17 +199,17 @@ test_predictions_reg
 ```
 Grafico con las predicciones
 ```{r}
-ggplot(test_predictions_reg, aes(perc_contr_direct_val, .pred)) +
+ggplot(test_predictions_reg, aes(perc_contr_directa_num, .pred)) +
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) +
   ggtitle("Valor real (contratación directa) Vs predicción (.pred)")
 ```
-## Modelo final
+### Modelo final
 ```{r}
 final_model <- fit(rf_workflow_reg, indicadores_gen)
 final_model
 ```
-## variables de mayor importancia
+### variables de mayor importancia
 ```{r}
 ranger_obj <- pull_workflow_fit(final_model)$fit
 
@@ -226,5 +234,202 @@ rf_importacia_reg %>%
   ggtitle("Importancia de los predictores") +
   coord_flip()
  
+```
+NOTA: Cuando se trata de los que SI tuvieron contratación directa el indicador de riesgo de corrupción sigue siendo el segundo más importante pero su valor de importancia se reduce a la mitad.
+
+## Random Forest por clasificación
+
+### Preprocesamiento de los datos
+
+Lectura de los datos
+```{r}
+indicadores_clas <- read.csv("indicadores_BD.csv")
+```
+
+Eliminar columnas que no son necesarias
+```{r}
+indicadores_clas$X <- NULL
+indicadores_clas$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
+indicadores_clas$nit_entidad <- NULL
+indicadores_clas$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
+indicadores_clas$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_clas$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
+
+#para volver a correr el modelo porque con esta columna genera error 
+indicadores_clas$nombre_entidad <- NULL
+
+#pasar a factor las nominales a ver si funciona el modelo
+#indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
+indicadores_clas$orden_entidad <- as.factor(indicadores_clas$orden_entidad)
+indicadores_clas$departamento_entidad <- as.factor(indicadores_clas$departamento_entidad)
+
+# eliminar la columna de los deptos porque no es importante 
+#indicadores_gen$departamento_entidad <- NULL
+# cuando se elimina los departamentos el r cuadrado baja
+
+
+# ver si el modelo hace un mejor trabajo solo con los que tienen contr directa >0
+#indicadores_gen <- indicadores_gen %>% filter(perc_contr_directa_num>0)
+
+
+#Ccalcular los cuartiles
+cartiles <-quantile(indicadores_clas$perc_contr_directa_num)
+
+# crear la columna de los cuartiles
+indicadores_clas <- indicadores_clas %>% 
+  mutate(quartil = case_when(perc_contr_directa_num <= cartiles[2] ~ "Q1",
+                             perc_contr_directa_num <= cartiles[3] ~ "Q2",
+                             perc_contr_directa_num <= cartiles[4] ~ "Q3",
+                             TRUE ~ "Q4") )
+
+#verfiicar que si esta funcionando
+indicadores_clas %>% dplyr::select(perc_contr_directa_num, quartil)
+
+# hacer histograma con la distribucion de los cuartiles
+ggplot(indicadores_clas, aes(perc_contr_directa_num)) + 
+  geom_histogram(col = "white", fill = "gray", aes(y = ..density..)) + 
+  geom_density(col = "blue") + 
+  ggtitle("Distribución de perc_contr_directa_num ") + 
+  geom_vline(xintercept = cartiles[2], color = "red") +
+  geom_vline(xintercept = cartiles[3], color = "red") +
+  geom_vline(xintercept = cartiles[4], color = "red") + 
+  geom_vline(xintercept = cartiles[5], color = "red") +
+  theme_classic()
+
+#eliminar el porcentaje de contratacion directa
+indicadores_clas$perc_contr_directa_num <- NULL
+```
+
+División de los datos en train y test
+```{r}
+set.seed(456)
+indicadores_clas_split <- initial_split(indicadores_clas, strata = quartil)
+indicadores_clas_train <- training(indicadores_clas_split)
+indicadores_clas_test <- testing(indicadores_clas_split)
+```
+
+Definir las tareas de preprocesamiento
+
+- Normalizar las variables numéricas
+-  Crear variables dummyes con las variables categóricas
+```{r}
+indicadores_clas_rec <- recipe(quartil ~ .,
+                               data = indicadores_clas) %>% 
+  step_normalize(all_numeric()) %>% 
+  step_dummy(all_nominal(), -quartil, one_hot = TRUE)
+
+indicadores_clas_rec
+```
+### Definir el modelo random forest
+
+Se configura un modelo con los parametros que trae la función por defecto.
+```{r}
+rf_model_clas <-  rand_forest() %>% 
+  set_engine("ranger", importance = "impurity") %>% 
+  set_mode("classification") 
+```
+
+### Definir el workflow
+```{r}
+rf_workflow_clas <- workflow() %>% 
+  add_recipe(indicadores_clas_rec) %>% 
+  add_model(rf_model_clas)
+```
+
+### Validar el modelo de random forest
+```{r}
+rf_val_clas <- rf_workflow_clas %>% 
+  last_fit(indicadores_clas_split)
+
+rf_val_clas %>% collect_predictions()
+```
+### Matriz de confusion
+```{r}
+rf_val_clas %>% collect_predictions() %>% conf_mat(quartil, .pred_class)
+```
+Algunas métricas a partir de la matriz de confusión y otra información de la predicción.
+
+- accuracy: indica en que proporción se predicen bien las dos clases.
+- Sensitivity: indica que proporción de las predicciones positivas son correctas, con respecto al total de clases reales positivas. Specificity: indica que proporción de las predicciones negativas son correctas, con respecto al total de clases reales negativas.
+- Positive predictive: indica que proporción de las predicciones positivas son correctas, con respecto al total de predicciones.
+- Negative predictive: indica que proporción de las prediccion negativas son correctas, con respecto al total de predicciones.
+
+```{r}
+# Métricas generales como el auc y accuracy
+rf_val_clas %>% collect_metrics()
+```
+
+```{r}
+# Sensibilidad
+rf_val_clas %>% collect_predictions() %>% sensitivity(quartil, .pred_class)
+```
+
+```{r}
+# Especificidad
+rf_val_clas %>% collect_predictions() %>% specificity(quartil, .pred_class)
+```
+
+```{r}
+# Predicción positiva
+rf_val_clas %>% collect_predictions() %>% ppv(quartil, .pred_class)
+```
+```{r}
+# Predicción negativa
+rf_val_clas %>% collect_predictions() %>% npv(quartil, .pred_class)
+```
+
+A continuación se presenta el número de obervaciones que fueron correctamente clasificadas y el núermo que fue incorrectamente clasificadas
+```{r}
+#Correcto
+rf_val_clas %>% collect_predictions() %>% 
+  mutate(correcto = case_when(.pred_class == quartil ~ "Yes",
+                              TRUE ~ "No")) %>% 
+  filter(correcto == "Yes") %>%
+  count()
+
+# incorrecto
+rf_val_clas %>% collect_predictions() %>% 
+  mutate(correcto = case_when(.pred_class == quartil ~ "Yes",
+                              TRUE ~ "No")) %>% 
+  filter(correcto == "No") %>%
+  count()
+```
+
+### Modelo final del random forest
+```{r}
+rf_final_model_clas <- fit(rf_workflow_clas, training(indicadores_clas_split))
+rf_final_model_clas
+```
+### variables de mayor importancia
+```{r}
+ranger_obj_clas <- pull_workflow_fit(rf_final_model_clas)$fit
+
+rf_importacia_clas <- tibble(variable = names(ranger_obj_clas$variable.importance),
+                            importancia = ranger_obj_clas$variable.importance)
+
+rf_importacia_clas
+
+importantes_clas <- data.frame(rf_importacia_clas %>% 
+                             mutate(variable = forcats::fct_reorder(variable, importancia)) %>% 
+                            arrange(desc(importancia)))
+```
+### Accuracy
+
+```{r}
+
+# Nivel de accuracy
+rf_metric <- rf_val_clas %>% collect_metrics() %>% mutate(model = "Random Forest")
+rf_metric
+```
+
+Gráfico de las variables más importantes
+```{r}
+rf_importacia_clas %>% 
+  mutate(variable = forcats::fct_reorder(variable, importancia)) %>% 
+   top_n(20) %>% 
+  ggplot(aes(variable, importancia)) + 
+  geom_bar(stat = "identity") + 
+  ggtitle("Importancia de los predictores") +
+  coord_flip()
 ```
 
