@@ -1,0 +1,95 @@
+---
+title: "Random Forest"
+author: "Yilber Alejandro Erazo Bolaños"
+date: "11/2/2021"
+output: 
+    bookdown: html_document2:
+      fig_caption: true
+      toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F, fig.align = "center")
+```
+
+librería
+```{r}
+#install.packages("tidymodels")
+library(tidymodels)
+library(knitr)
+```
+
+
+# Modelo Random Forest 
+
+## Preprocesamiento de los datos
+
+Lectura de los datos
+```{r}
+indicadores_gen <- read.csv("indicadores_BD.csv")
+```
+
+Eliminar columnas que no son necesarias
+```{r}
+indicadores_gen$X <- NULL
+indicadores_gen$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
+indicadores_gen$nit_entidad <- NULL
+indicadores_gen$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
+indicadores_gen$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_gen$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
+```
+
+División de los datos en train y test
+```{r}
+set.seed(123)
+indicadores_gen_split <- initial_split(indicadores_gen, strata = perc_contr_directa_num)
+indicadores_gen_train <- training(indicadores_gen_split)
+indicadores_gen_test <- testing(indicadores_gen_split)
+```
+
+Procesamiento y preparación de variables
+```{r}
+indicadores_gen_rec <- recipe(perc_contr_directa_num ~ ., data = indicadores_gen) %>% 
+  update_role(nombre_entidad, new_role = "ID") %>% 
+  step_normalize(all_numeric(), -perc_contr_directa_num) %>% 
+  step_dummy(all_nominal(), one_hot = TRUE)
+
+indicadores_gen_rec
+```
+
+El objeto 'indicadores_gen_rec' es una rutina de preprocesamiento que se puede aplicar a los datos de train y test.
+```{r}
+indicadores_gen_train_prep <- indicadores_gen_rec %>% 
+  prep(indicadores_gen_train) %>% 
+  juice()
+
+head(indicadores_gen_train_prep)
+```
+
+## Configurar el modelo por regresión
+La librería a usar es 'Parsnip'que ofrece una interfaz unificada para la gran variedad de modelos de machine learning que existen en R. Esto significa que solo tiene que utilizar una forma estandar para configurar un modelo, y puede usar esta configuración diferentes tipos de modelos: Módelo Lineal, Ridge, Lasso, Random Forest, Regresión Logística, Arboles, Support Vector Machine, entre otros.
+```{r}
+indicadores_gen_rf <- rand_forest() %>% 
+  set_args(mtry = tune(),
+           trees = tune()) %>% 
+  set_engine("ranger", importance = "impurity") %>% 
+  set_mode("regression")
+
+indicadores_gen_rf %>% translate()
+```
+## Definir el workflow
+
+El flujo de trabajo permite integrar todas las tareas que se estan desarrollando para entrenar el modelo de machine learning.
+```{r}
+rf_workflow_reg <- workflow() %>% 
+  add_recipe(indicadores_gen_rec) %>% 
+  add_model(indicadores_gen_rf)
+
+rf_workflow_reg
+```
+## Calibración de parámetros
+
+
+
+
+
