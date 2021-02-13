@@ -40,6 +40,7 @@ indicadores_gen$nit_entidad <- NULL
 indicadores_gen$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
 indicadores_gen$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
 indicadores_gen$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_gen$perc_contr_direct_val <- NULL #porque no tenemos información sobre la contratación directa
 
 #para volver a correr el modelo porque con esta columna genera error 
 indicadores_gen$nombre_entidad <- NULL
@@ -254,6 +255,7 @@ indicadores_clas$nit_entidad <- NULL
 indicadores_clas$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
 indicadores_clas$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
 indicadores_clas$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_clas$perc_contr_direct_val <- NULL #porque se supone que no tenemos info de contr. 
 
 #para volver a correr el modelo porque con esta columna genera error 
 indicadores_clas$nombre_entidad <- NULL
