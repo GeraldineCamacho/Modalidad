@@ -18,6 +18,7 @@ librería
 #install.packages("tidymodels")
 library(tidymodels)
 library(knitr)
+library(readxl)
 ```
 
 
@@ -26,6 +27,13 @@ library(knitr)
 ## Random Forest por regresión
 
 ### Preprocesamiento de los datos
+
+Indicadores supersalud
+```{r}
+supersalud <- read_excel("supersalud_indicadores.xlsx")
+#supersalud <- read.csv("supersalud_indicadores.csv")
+```
+
 
 Lectura de los datos
 ```{r}
@@ -62,7 +70,9 @@ indicadores_gen$departamento_entidad <- as.factor(indicadores_gen$departamento_e
 División de los datos en train y test
 ```{r}
 set.seed(123)
-indicadores_gen_split <- initial_split(indicadores_gen, strata = perc_contr_directa_num)
+indicadores_gen_split <- initial_split(indicadores_gen, 
+                                       strata = perc_contr_directa_num,
+                                       prop = 4/5)
 indicadores_gen_train <- training(indicadores_gen_split)
 indicadores_gen_test <- testing(indicadores_gen_split)
 ```
@@ -74,7 +84,7 @@ indicadores_gen_rec <- recipe(perc_contr_directa_num ~ ., data = indicadores_gen
   step_normalize(all_numeric(), -perc_contr_directa_num) %>% 
   step_dummy(all_nominal(), one_hot = TRUE)
 
-indicadores_gen_rec
+#indicadores_gen_rec
 ```
 
 El objeto 'indicadores_gen_rec' es una rutina de preprocesamiento que se puede aplicar a los datos de train y test.
@@ -83,7 +93,7 @@ indicadores_gen_train_prep <- indicadores_gen_rec %>%
   prep(indicadores_gen_train) %>% 
   juice()
 
-head(indicadores_gen_train_prep)
+#head(indicadores_gen_train_prep)
 ```
 
 ### Configurar el modelo
@@ -106,7 +116,7 @@ rf_workflow_reg <- workflow() %>%
   add_recipe(indicadores_gen_rec) %>% 
   add_model(indicadores_gen_rf)
 
-rf_workflow_reg
+#rf_workflow_reg
 ```
 
 ### Calibración de parámetros
@@ -123,7 +133,6 @@ Ahora se configuran las metricas que se utilizarán para calibrar los parametros
 rf_gird_reg <- expand.grid(mtry = c(3, 4, 5, 7),
                            trees = c(100, 300, 500))
 
-rf_gird_reg
 ```
 
 Ahora se corre un modelo de random forest para cada una de estas condiciones.
@@ -133,7 +142,7 @@ rf_tune_results_reg <- rf_workflow_reg %>%
             grid = rf_gird_reg,
             metrics = metric_set(rmse, mae))
 
-rf_tune_results_reg
+#rf_tune_results_reg
 ```
 
 A continuación se presenta la tabla que contiene el valor de las metricas para valor de los parametros y de acuerdo a cada metrica.
@@ -152,6 +161,8 @@ rf_metrics_reg %>%
   geom_line(alpha = 0.5, size = 1) +
   ggtitle("RMSE en función del mtry y el número de árboles")
 ```
+
+grafico2
 ```{r}
 rf_metrics_reg %>% 
   filter(.metric == "mae") %>% 
@@ -159,6 +170,7 @@ rf_metrics_reg %>%
   geom_line(alpha = 0.5, size = 1) +
   ggtitle("RMSE en función del mtry y el número de árboles")
 ```
+
 A continuación se presenta el codigo para seleccionar los mejores parametros del modelo en función de la métrica rmse:
 ```{r}
 param_final_reg <- rf_tune_results_reg %>% 
@@ -176,6 +188,7 @@ rf_workflow_reg <- rf_workflow_reg %>%
 
 rf_workflow_reg
 ```
+
 Ahora se valida con los conjuntos de entrenamiento y prueba. En este caso se toma todo el conjunto de entrenamiento y se construye un modelo con los parametros calibrados del random forest.
 ```{r}
 rf_fit_reg <- rf_workflow_reg %>% 
@@ -198,18 +211,22 @@ test_predictions_reg <- rf_fit_reg %>%
 
 test_predictions_reg
 ```
+
 Grafico con las predicciones
 ```{r}
 ggplot(test_predictions_reg, aes(perc_contr_directa_num, .pred)) +
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) +
-  ggtitle("Valor real (contratación directa) Vs predicción (.pred)")
+  ggtitle("Valor real (contratación directa) Vs predicción (.pred) TRAIN")
+
+cor.test(test_predictions_reg$perc_contr_directa_num, test_predictions_reg$.pred)
 ```
 ### Modelo final
 ```{r}
 final_model <- fit(rf_workflow_reg, indicadores_gen)
 final_model
 ```
+
 ### variables de mayor importancia
 ```{r}
 ranger_obj <- pull_workflow_fit(final_model)$fit
@@ -217,12 +234,11 @@ ranger_obj <- pull_workflow_fit(final_model)$fit
 rf_importacia_reg <- tibble(variable = names(ranger_obj$variable.importance),
                             importancia = ranger_obj$variable.importance)
 
-rf_importacia_reg
 
 importantes <- data.frame(rf_importacia_reg %>% 
                              mutate(variable = forcats::fct_reorder(variable, importancia)) %>% 
                             arrange(desc(importancia)))
-
+importantes
 ```
 
 Gráfico de las variables más importantes
@@ -237,6 +253,28 @@ rf_importacia_reg %>%
  
 ```
 NOTA: Cuando se trata de los que SI tuvieron contratación directa el indicador de riesgo de corrupción sigue siendo el segundo más importante pero su valor de importancia se reduce a la mitad.
+
+### Predecir 
+```{r}
+predicciones <- predict(final_model, new_data = indicadores_gen_test)
+
+#preguntar por esta parte
+predicciones <- cbind(predicciones, indicadores_gen_test$perc_contr_directa_num)
+names(predicciones) <- c(".pred", "perc_contr_directa_num")
+```
+
+### Gráfico del test
+```{r}
+ggplot(predicciones, aes(perc_contr_directa_num, .pred)) +
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) +
+  ggtitle("Valor real (contratación directa) Vs predicción (.pred) TEST")
+
+cor.test(predicciones$perc_contr_directa_num, predicciones$.pred)
+```
+
+
+
 
 ## Random Forest por clasificación
 
