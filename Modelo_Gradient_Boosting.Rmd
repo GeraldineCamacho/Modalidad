@@ -1,0 +1,221 @@
+---
+title: "Gradient Boosting"
+author: "Yilber Alejandro Erazo Bolaños"
+date: "17/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Boosting es otra estrategia de ensemble que se puede emplear con un amplio grupo de métodos de statistical learning, entre ellos los árboles de decisión. La idea detrás del boosting es ajustar, de forma secuencial, múltiples weak learners (modelos sencillos que predicen solo ligeramente mejor que lo esperado por azar). Cada nuevo modelo emplea información del modelo anterior para aprender de sus errores, mejorando iteración a iteración. En el caso de los árboles de predicción, un weak learners se consigue utilizando árboles con muy pocas ramificaciones. A diferencia del método de bagging (random forest), el boosting no hace uso de muestreo repetido (bootstrapping), la diferencia entre los árboles que forman el ensemble se origina por que la importancia (peso) de las observaciones va cambiando en cada iteración.
+
+librerías
+```{r}
+# Tratamiento de datos
+# ==============================================================================
+library(MASS)
+library(dplyr)
+library(tidyr)
+library(skimr)
+
+# Gráficos
+# ==============================================================================
+library(ggplot2)
+#install.packages("ggpubr")
+library(ggpubr)
+
+# Preprocesado y modelado
+# ==============================================================================
+library(tidymodels)
+#install.packages("xgboost")
+library(xgboost)
+#install.packages("gbm")
+library(gbm)
+#install.packages("doParallel")
+library(doParallel)
+```
+
+
+# Gradient Boosting por regresión
+
+## Preprocesamiento de los datos
+
+Lectura de los datos
+```{r}
+#supersalud <- read_excel("supersalud_indicadores.xlsx")
+indicadores_gen <- read.csv("indicadores_BD.csv")
+```
+
+Eliminar columnas que no son necesarias
+```{r}
+indicadores_gen$X <- NULL
+indicadores_gen$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
+indicadores_gen$nit_entidad <- NULL
+indicadores_gen$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
+indicadores_gen$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_gen$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_gen$perc_contr_direct_val <- NULL #porque no tenemos información sobre la contratación directa
+
+#para volver a correr el modelo porque con esta columna genera error 
+indicadores_gen$nombre_entidad <- NULL
+
+#pasar a factor las nominales a ver si funciona el modelo
+#indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
+indicadores_gen$orden_entidad <- as.factor(indicadores_gen$orden_entidad)
+indicadores_gen$departamento_entidad <- as.factor(indicadores_gen$departamento_entidad)
+
+# eliminar la columna de los deptos porque no es importante 
+#indicadores_gen$departamento_entidad <- NULL
+# cuando se elimina los departamentos el r cuadrado baja
+
+
+# ver si el modelo hace un mejor trabajo solo con los que tienen contr directa >0
+#indicadores_gen <- indicadores_gen %>% filter(perc_contr_directa_num>0)
+```
+
+División de los datos en train y test
+```{r}
+set.seed(789)
+indicadores_gen_split <- initial_split(indicadores_gen, 
+                                       strata = perc_contr_directa_num,
+                                       prop = 4/5)
+datos_train <- training(indicadores_gen_split)
+datos_test <- testing(indicadores_gen_split)
+```
+
+Los modelos de XGBoost pueden trabajar con varios formatos de datos, entre ellos las matrices de R. Sin embargo, es recomendable utilizar xgb.DMatrix, una estructura propia y optimizada esta librería.
+```{r}
+#datos_train <- xgb.DMatrix(
+#  data = indicadores_gen_train %>% 
+#    dplyr::select(-perc_contr_directa_num) %>% data.matrix(),
+#  label = indicadores_gen_train$perc_contr_directa_num)
+
+#datos_test <- xgb.DMatrix(
+#  data = indicadores_gen_test %>%
+#    dplyr::select(-perc_contr_directa_num) %>% data.matrix(),
+#  label = indicadores_gen_test$perc_contr_directa_num)
+```
+
+## Definición del modelo y de los hiperparámetros a optimizar
+```{r}
+modelo_xgb <- boost_tree(mode        = "regression",
+                         mtry        = tune(),
+                         trees       = tune(),
+                         tree_depth  = tune(),
+                         learn_rate  = tune(),
+                         sample_size = tune(),
+                         stop_iter   = NULL) %>% 
+  set_engine(engine = "xgboost")
+
+modelo_xgb
+```
+
+## Definición del preprocesado
+
+- Normalizar las variables numéricas
+-  Crear variables dummyes con las variables categóricas
+```{r}
+transformer <- recipe(formula= perc_contr_directa_num ~ .,
+                      data = datos_train) %>% 
+  #update_role(nombre_entidad, new_role = "ID") %>% 
+  step_normalize(all_numeric(), -perc_contr_directa_num) %>% 
+  step_dummy(all_nominal(), one_hot = TRUE)
+
+transformer
+```
+
+## Definición de las estrategia de validación y creación de particiones - Definición de parámetros
+```{r}
+set.seed(1234)
+cv_folds <- vfold_cv(data = datos_train,
+                     v = 5,
+                     strata = perc_contr_directa_num)
+```
+
+## Definir el workflow
+```{r}
+workflow_modelado <- workflow() %>%
+                     add_recipe(transformer) %>%
+                     add_model(modelo_xgb)
+```
+
+## Grid de hiperparámetros
+```{r}
+hiperpar_grid <- expand_grid("trees" = c(100, 500, 1000),
+                             "mtry" = c(ceiling(sqrt(ncol(datos_train))), ncol(datos_train)-1),
+                             "tree_depth" = c(1, 3, 10, 20),
+                             "learn_rate" = c(0.01, 0.1, 0.3),
+                             "sample_size" = c(0.5, 1))
+```
+
+# Optimización de hiperparámetros ejecución
+```{r}
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+set.seed(1235)
+grid_fit <- tune_grid(
+              object    = workflow_modelado,
+              resamples = cv_folds,
+              metrics   = metric_set(rmse),
+              grid      = hiperpar_grid
+            )
+
+stopCluster(cl)
+```
+
+## Mejores hiperparámetros
+```{r}
+show_best(grid_fit, metric = "rmse", n = 1)
+
+mejores_hiperpar <- select_best(grid_fit, metric = "rmse")
+
+```
+
+## Entrenamiento final
+```{r}
+modelo_final_fit <- finalize_workflow(
+                        x = workflow_modelado,
+                        parameters = mejores_hiperpar
+                    ) %>%
+                    fit(
+                      data = datos_train
+                    ) %>%
+                    pull_workflow_fit()
+```
+
+## Error de test del modelado final
+```{r}
+predicciones_xgb <- modelo_final_fit %>% 
+  predict(new_data = bake(transformer,
+                          datos_test %>% dplyr::select(-perc_contr_directa_num)),
+          type = "numeric")
+
+predicciones_xgb <- predicciones_xgb %>% 
+  bind_cols(datos_test %>% dplyr::select(perc_contr_directa_num))
+
+rmse_test <- rmse(data = predicciones_xgb,
+                  truth = perc_contr_directa_num,
+                  estimate = .pred,
+                  na_rm = TRUE)
+
+rmse_test
+```
+
+## Importancia de los predictores
+
+La función xgb.importance() calcula la importancia de los predictores de un modelo XGBoost en base a la pureza de nodos.
+```{r}
+importance_matrix <- xgb.importance(model = modelo_final_fit$fit)
+xgb.plot.importance(importance_matrix = importance_matrix)
+```
+
+
+
+
+
+
+
+# Gradient Boosting por clasificación
