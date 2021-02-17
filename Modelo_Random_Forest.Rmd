@@ -19,6 +19,7 @@ librería
 library(tidymodels)
 library(knitr)
 library(readxl)
+library(ggplot2)
 ```
 
 
@@ -329,15 +330,19 @@ indicadores_clas %>% dplyr::select(perc_contr_directa_num, quartil)
 ggplot(indicadores_clas, aes(perc_contr_directa_num)) + 
   geom_histogram(col = "white", fill = "gray", aes(y = ..density..)) + 
   geom_density(col = "blue") + 
-  ggtitle("Distribución de perc_contr_directa_num ") + 
   geom_vline(xintercept = cartiles[2], color = "red") +
   geom_vline(xintercept = cartiles[3], color = "red") +
   geom_vline(xintercept = cartiles[4], color = "red") + 
   geom_vline(xintercept = cartiles[5], color = "red") +
-  theme_classic()
+  #scale_x_continuous(labels = scales::percent_format()) +
+  labs(title = "Distribución de porcentaje de contratación directa",
+       x = "Porcentaje de contratación directa",
+       y = "Densidad") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
 
 #eliminar el porcentaje de contratacion directa
-indicadores_clas$perc_contr_directa_num <- NULL
+#indicadores_clas$perc_contr_directa_num <- NULL
 ```
 
 División de los datos en train y test
@@ -359,7 +364,7 @@ indicadores_clas_rec <- recipe(quartil ~ .,
   step_normalize(all_numeric()) %>% 
   step_dummy(all_nominal(), -quartil, one_hot = TRUE)
 
-indicadores_clas_rec
+#indicadores_clas_rec
 ```
 ### Definir el modelo random forest
 
