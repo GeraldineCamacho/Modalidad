@@ -112,7 +112,8 @@ rf_workflow_reg <- workflow() %>%
 Para calibrar los parametros se utiliza el metodo de validación cruzada. Este procedimiento tiene como proposito encontrar los parametros optimos del modelo o algoritmo.
 ```{r}
 # creación de los folds
-indicadores_gen_cv <- vfold_cv(indicadores_gen_train, v=5)
+indicadores_gen_cv <- vfold_cv(indicadores_gen_train,
+                               v=5)
 indicadores_gen_cv
 ```
 

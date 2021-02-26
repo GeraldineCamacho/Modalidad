@@ -121,9 +121,10 @@ transformer <- recipe(formula= perc_contr_directa_num ~ .,
                       data = datos_train) %>% 
   #update_role(nombre_entidad, new_role = "ID") %>% 
   step_normalize(all_numeric(), -perc_contr_directa_num) %>% 
-  step_dummy(all_nominal(), one_hot = TRUE)
+  step_dummy(all_nominal(), one_hot = TRUE) %>% 
+  prep()
 
-transformer
+#transformer <- prep(transformer, verbose = TRUE)
 ```
 
 ## Definición de las estrategia de validación y creación de particiones - Definición de parámetros
@@ -164,6 +165,7 @@ grid_fit <- tune_grid(
             )
 
 stopCluster(cl)
+
 ```
 
 ## Mejores hiperparámetros
@@ -184,13 +186,28 @@ modelo_final_fit <- finalize_workflow(
                       data = datos_train
                     ) %>%
                     pull_workflow_fit()
+
+modelo_final_fit
 ```
 
 ## Error de test del modelado final
 ```{r}
+# aplicar los mismos pasos al test data
+transformer_test <- recipe(formula= perc_contr_directa_num ~ .,
+                      data = datos_test) %>% 
+  #update_role(nombre_entidad, new_role = "ID") %>% 
+  step_normalize(all_numeric(), -perc_contr_directa_num) %>% 
+  step_dummy(all_nominal(), one_hot = TRUE) %>% 
+  prep()
+
+
 predicciones_xgb <- modelo_final_fit %>% 
-  predict(new_data = bake(transformer,
-                          datos_test %>% dplyr::select(-perc_contr_directa_num)),
+  predict(new_data = transformer_test,
+          type = "numeric")
+
+
+predicciones_xgb <- modelo_final_fit %>% 
+  predict(new_data = bake(transformer, datos_test %>% dplyr::select(-perc_contr_directa_num)),
           type = "numeric")
 
 predicciones_xgb <- predicciones_xgb %>% 
@@ -214,8 +231,212 @@ xgb.plot.importance(importance_matrix = importance_matrix)
 
 
 
+# Gradient Boosting por clasificación 
+
+# Gradient Boosting por regresión
+
+## Preprocesamiento de los datos
+
+Lectura de los datos
+```{r}
+#supersalud <- read_excel("supersalud_indicadores.xlsx")
+indicadores_gen <- read.csv("indicadores_BD.csv")
+```
+
+Eliminar columnas que no son necesarias
+```{r}
+indicadores_gen$X <- NULL
+indicadores_gen$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
+indicadores_gen$nit_entidad <- NULL
+indicadores_gen$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
+indicadores_gen$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_gen$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_gen$perc_contr_direct_val <- NULL #porque no tenemos información sobre la contratación directa
+
+#para volver a correr el modelo porque con esta columna genera error 
+indicadores_gen$nombre_entidad <- NULL
+indicadores_gen$ind_riesgo_corrupcion <- NULL
+
+#pasar a factor las nominales a ver si funciona el modelo
+#indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
+indicadores_gen$orden_entidad <- as.factor(indicadores_gen$orden_entidad)
+indicadores_gen$departamento_entidad <- as.factor(indicadores_gen$departamento_entidad)
+
+# eliminar la columna de los deptos porque no es importante 
+#indicadores_gen$departamento_entidad <- NULL
+# cuando se elimina los departamentos el r cuadrado baja
+
+# ver si el modelo hace un mejor trabajo solo con los que tienen contr directa >0
+#indicadores_gen <- indicadores_gen %>% filter(perc_contr_directa_num>0)
+```
+
+Crear las categorías de corrupción de alto, medio y bajo
+```{r}
+indicadores_gen <- indicadores_gen %>% 
+  mutate(riesgo = case_when(perc_contr_directa_num <= 10.5 ~ "Bajo",
+                            perc_contr_directa_num <= 25.5 ~ "Moderado",
+                            perc_contr_directa_num <= 40 ~ "Medio",
+                            TRUE ~ "Alto"))
+
+indicadores_gen$riesgo <- as.factor(indicadores_gen$riesgo)
+
+# Eliminar la columna de la que se sacó la información
+indicadores_gen$perc_contr_directa_num <- NULL
+```
+
+División de los datos en train y test
+```{r}
+set.seed(789)
+vb_split <- initial_split(indicadores_gen, 
+                          strata = riesgo)
+vb_train <- training(vb_split)
+vb_test <- testing(vb_split)
+```
+
+Un modelo XGBoost se basa en árboles, por lo que no se necesita hacer mucho preprocesamiento de los datos; no hay que preocuparse por los factores o centrar o escalar los datos. Esto quiere decir que no se requiere de un recipe, si no que se va directamente a configurar la especificación de modelo.Vamos a ajustar muchos hiperparámetros del modelo.
+
+```{r}
+xgb_spec <- boost_tree(
+  trees = 1000, 
+  tree_depth = tune(),
+  min_n = tune(), 
+  loss_reduction = tune(),                     ## first three: model complexity
+  sample_size = tune(),
+  mtry = tune(),         ## randomness
+  learn_rate = tune(),                         ## step size
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+
+xgb_spec
+```
+Usemos un diseño que llene el espacio para que podamos cubrir el espacio del hiperparámetro lo mejor posible, hay 2 formas de hacerlo, con grid_max_entropy() y con grid_latin_hypercube(). Existe la copción de usar grid_regular() y un expand_grid() para tunear los hiperparámetros, pero por términos computacionales es mejor determinar un espacio para cubrir el espacio de cada hiperparámetro. 
+```{r}
+xgb_grid <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), vb_train),
+  learn_rate(),
+  size = 30
+)
+
+xgb_grid
+```
+Pongamos la especificación del modelo en un flujo de trabajo para mayor comodidad. Como no tenemos ningún preprocesamiento de datos complicado, podemos usar add_formula () como nuestro preprocesador de datos.
+```{r}
+xgb_wf <- workflow() %>%
+  add_formula(riesgo ~ .) %>%
+  add_model(xgb_spec)
+
+xgb_wf
+```
+Ahora se crea una validación cruzada para tunear el modelo.
+```{r}
+set.seed(125)
+vb_folds <- vfold_cv(vb_train, strata = riesgo)
+
+vb_folds
+```
+ES HORA DE TUNEAR. Usamos tune_grid() con nuestro flujo de trabajo ajustable, nuestros remuestreos y nuestra cuadrícula de parámetros para probar. Usemos control_grid (save_pred = TRUE) para que podamos explorar las predicciones después.
+```{r}
+doParallel::registerDoParallel()
+
+set.seed(234)
+xgb_res <- tune_grid(
+  xgb_wf,
+  resamples = vb_folds,
+  grid = xgb_grid,
+  control = control_grid(save_pred = TRUE)
+)
+
+xgb_res
+```
+Explorar resultados:
+Podemos explorar las métricas de todos estos modelos.
+
+```{r}
+collect_metrics(xgb_res)
+```
+También podemos utilizar la visualización para comprender nuestros resultados.
+```{r}
+xgb_res %>%
+  collect_metrics() %>%
+  filter(.metric == "roc_auc") %>%
+  select(mean, mtry:sample_size) %>%
+  pivot_longer(mtry:sample_size,
+               values_to = "value",
+               names_to = "parameter"
+  ) %>%
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "AUC")
+```
+Recuerde que usamos un diseño que llena el espacio para que los parámetros prueben. Parece que los valores más altos para la profundidad del árbol fueron mejores, pero aparte de eso, lo principal que saco de este gráfico es que hay varias combinaciones de parámetros que funcionan bien.
+
+¿Cuáles son los conjuntos de parámetros con mejor rendimiento?
+```{r}
+show_best(xgb_res, "roc_auc")
+```
+
+Puede que haya muchos parámetros, pero pudimos obtener un buen rendimiento con varias combinaciones diferentes. Elijamos el mejor.
+```{r}
+best_auc <- select_best(xgb_res, "roc_auc")
+best_auc
+
+xgb_res %>% collect_metrics() %>%
+  filter(.metric == "accuracy") %>%  arrange(desc(mean))
+```
+
+Ahora finalicemos nuestro flujo de trabajo optimizable con estos valores de parámetros
+```{r}
+final_xgb <- finalize_workflow(
+  xgb_wf,
+  best_auc
+)
+
+final_xgb
+```
+En lugar de marcadores de posición tune (), ahora tenemos valores reales para todos los hiperparámetros del modelo. ¿Cuáles son los parámetros más importantes para la importancia de las variables?
+```{r}
+#install.packages("vip")
+#library(vip)
+
+final_xgb %>%
+  fit(data = vb_train) %>%
+  pull_workflow_fit() %>%
+  vip(geom = "point")
+```
+¡Es hora de volver al conjunto de pruebas! Usemos last_fit () para ajustar nuestro modelo una última vez a los datos de entrenamiento y evaluar nuestro modelo una última vez en el conjunto de pruebas. Tenga en cuenta que esta es la primera vez que utilizamos los datos de prueba durante todo este análisis de modelado.
+```{r}
+final_res <- last_fit(final_xgb, vb_split)
+
+collect_metrics(final_res)
+```
+
+Matriz de conflicto
+```{r}
+final_res %>% 
+  collect_predictions() %>% 
+  conf_mat(riesgo, .pred_class)
+```
 
 
+Nuestros resultados aquí indican que no sobreajustamos durante el proceso de ajuste. También podemos crear una curva ROC para el conjunto de pruebas.
+```{r}
+final_res %>%
+  collect_predictions() %>%
+  roc_curve(riesgo, .pred_Bajo) 
 
+#%>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_line(size = 1.5, color = "midnightblue") +
+  geom_abline(
+    lty = 2, alpha = 0.5,
+    color = "gray50",
+    size = 1.2
+  )
+```
 
-# Gradient Boosting por clasificación
