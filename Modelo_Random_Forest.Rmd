@@ -304,7 +304,6 @@ indicadores_clas$ind_riesgo_corrupcion <- NULL
 #crear los rangos
 indicadores_clas <- indicadores_clas %>% 
   mutate(riesgo = case_when(perc_contr_directa_num <= 15.5 ~ "Bajo",
-                            perc_contr_directa_num <= 35.5 ~ "Moderado",
                             perc_contr_directa_num <= 50 ~ "Medio",
                             TRUE ~ "Alto"))
 
