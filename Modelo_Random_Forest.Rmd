@@ -303,16 +303,17 @@ indicadores_clas$ind_riesgo_corrupcion <- NULL
 
 #crear los rangos
 indicadores_clas <- indicadores_clas %>% 
-  mutate(riesgo = case_when(perc_contr_directa_num <= 10.5 ~ "Bajo",
-                            perc_contr_directa_num <= 25.5 ~ "Moderado",
-                            perc_contr_directa_num <= 40 ~ "Medio",
+  mutate(riesgo = case_when(perc_contr_directa_num <= 15.5 ~ "Bajo",
+                            perc_contr_directa_num <= 35.5 ~ "Moderado",
+                            perc_contr_directa_num <= 50 ~ "Medio",
                             TRUE ~ "Alto"))
 
 indicadores_clas$riesgo <- as.factor(indicadores_clas$riesgo)
 
 # Eliminar la columna de la que se sacó la información
-indicadores_clas$perc_contr_directa_num <- NULL
+#indicadores_clas$perc_contr_directa_num <- NULL
 
+#indicadores_clas$riesgo <- NULL
 #Ccalcular los cuartiles
 #cartiles <-quantile(indicadores_clas$perc_contr_directa_num)
 
@@ -344,7 +345,7 @@ ggplot(indicadores_clas, aes(perc_contr_directa_num)) +
 
 Eliminar el porcentaje de contratacion directa
 ```{r}
-#indicadores_clas$perc_contr_directa_num <- NULL
+indicadores_clas$perc_contr_directa_num <- NULL
 ```
 
 División de los datos en train y test
