@@ -299,16 +299,29 @@ indicadores_clas$departamento_entidad <- as.factor(indicadores_clas$departamento
 # ver si el modelo hace un mejor trabajo solo con los que tienen contr directa >0
 #indicadores_gen <- indicadores_gen %>% filter(perc_contr_directa_num>0)
 
+indicadores_clas$ind_riesgo_corrupcion <- NULL
+
+#crear los rangos
+indicadores_clas <- indicadores_clas %>% 
+  mutate(riesgo = case_when(perc_contr_directa_num <= 10.5 ~ "Bajo",
+                            perc_contr_directa_num <= 25.5 ~ "Moderado",
+                            perc_contr_directa_num <= 40 ~ "Medio",
+                            TRUE ~ "Alto"))
+
+indicadores_clas$riesgo <- as.factor(indicadores_clas$riesgo)
+
+# Eliminar la columna de la que se sacó la información
+indicadores_clas$perc_contr_directa_num <- NULL
 
 #Ccalcular los cuartiles
-cartiles <-quantile(indicadores_clas$perc_contr_directa_num)
+#cartiles <-quantile(indicadores_clas$perc_contr_directa_num)
 
 # crear la columna de los cuartiles
-indicadores_clas <- indicadores_clas %>% 
-  mutate(quartil = case_when(perc_contr_directa_num <= cartiles[2] ~ "Q1",
-                             perc_contr_directa_num <= cartiles[3] ~ "Q2",
-                             perc_contr_directa_num <= cartiles[4] ~ "Q3",
-                             TRUE ~ "Q4") )
+#indicadores_clas <- indicadores_clas %>% 
+#  mutate(quartil = case_when(perc_contr_directa_num <= cartiles[2] ~ "Q1",
+#                             perc_contr_directa_num <= cartiles[3] ~ "Q2",
+#                             perc_contr_directa_num <= cartiles[4] ~ "Q3",
+#                             TRUE ~ "Q4") )
 
 #verfiicar que si esta funcionando
 #indicadores_clas %>% dplyr::select(perc_contr_directa_num, quartil)
@@ -331,14 +344,14 @@ ggplot(indicadores_clas, aes(perc_contr_directa_num)) +
 
 Eliminar el porcentaje de contratacion directa
 ```{r}
-indicadores_clas$perc_contr_directa_num <- NULL
+#indicadores_clas$perc_contr_directa_num <- NULL
 ```
 
 División de los datos en train y test
 ```{r}
 set.seed(456)
 indicadores_clas_split <- initial_split(indicadores_clas,
-                                        strata = quartil)
+                                        strata = riesgo)
 indicadores_clas_train <- training(indicadores_clas_split)
 indicadores_clas_test <- testing(indicadores_clas_split)
 ```
@@ -348,10 +361,10 @@ Definir las tareas de preprocesamiento
 - Normalizar las variables numéricas
 -  Crear variables dummyes con las variables categóricas
 ```{r}
-indicadores_clas_rec <- recipe(quartil ~ .,
+indicadores_clas_rec <- recipe(riesgo ~ .,
                                data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
-  step_dummy(all_nominal(), -quartil, one_hot = TRUE)
+  step_dummy(all_nominal(), -riesgo, one_hot = TRUE)
 
 #indicadores_clas_rec
 ```
@@ -361,7 +374,8 @@ indicadores_clas_rec <- recipe(quartil ~ .,
 Se configura un modelo con los parametros que trae la función por defecto.
 ```{r}
 rf_model_clas <-  rand_forest() %>% 
-  set_engine("ranger", importance = "impurity") %>% 
+  set_engine("ranger",
+             importance = "impurity") %>% 
   set_mode("classification") 
 ```
 
@@ -381,7 +395,7 @@ rf_val_clas %>% collect_predictions()
 ```
 ## Matriz de confusion
 ```{r}
-rf_val_clas %>% collect_predictions() %>% conf_mat(quartil, .pred_class)
+rf_val_clas %>% collect_predictions() %>% conf_mat(riesgo, .pred_class)
 ```
 Algunas métricas a partir de la matriz de confusión y otra información de la predicción.
 
@@ -397,36 +411,36 @@ rf_val_clas %>% collect_metrics()
 
 ```{r}
 # Sensibilidad
-rf_val_clas %>% collect_predictions() %>% sensitivity(quartil, .pred_class)
+rf_val_clas %>% collect_predictions() %>% sensitivity(riesgo, .pred_class)
 ```
 
 ```{r}
 # Especificidad
-rf_val_clas %>% collect_predictions() %>% specificity(quartil, .pred_class)
+rf_val_clas %>% collect_predictions() %>% specificity(riesgo, .pred_class)
 ```
 positiva
 ```{r}
 # Predicción positiva
-rf_val_clas %>% collect_predictions() %>% ppv(quartil, .pred_class)
+rf_val_clas %>% collect_predictions() %>% ppv(riesgo, .pred_class)
 ```
 negativa
 ```{r}
 # Predicción negativa
-rf_val_clas %>% collect_predictions() %>% npv(quartil, .pred_class)
+rf_val_clas %>% collect_predictions() %>% npv(riesgo, .pred_class)
 ```
 
 A continuación se presenta el número de obervaciones que fueron correctamente clasificadas y el núermo que fue incorrectamente clasificadas
 ```{r}
 #Correcto
 rf_val_clas %>% collect_predictions() %>% 
-  mutate(correcto = case_when(.pred_class == quartil ~ "Yes",
+  mutate(correcto = case_when(.pred_class == riesgo ~ "Yes",
                               TRUE ~ "No")) %>% 
   filter(correcto == "Yes") %>%
   count()
 
 # incorrecto
 rf_val_clas %>% collect_predictions() %>% 
-  mutate(correcto = case_when(.pred_class == quartil ~ "Yes",
+  mutate(correcto = case_when(.pred_class == riesgo ~ "Yes",
                               TRUE ~ "No")) %>% 
   filter(correcto == "No") %>%
   count()
