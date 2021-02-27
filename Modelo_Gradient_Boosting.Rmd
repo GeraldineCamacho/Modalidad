@@ -273,9 +273,8 @@ indicadores_gen$departamento_entidad <- as.factor(indicadores_gen$departamento_e
 Crear las categorías de corrupción de alto, medio y bajo
 ```{r}
 indicadores_gen <- indicadores_gen %>% 
-  mutate(riesgo = case_when(perc_contr_directa_num <= 10.5 ~ "Bajo",
-                            perc_contr_directa_num <= 25.5 ~ "Moderado",
-                            perc_contr_directa_num <= 40 ~ "Medio",
+  mutate(riesgo = case_when(perc_contr_directa_num <= 25 ~ "Bajo o Moderado",
+                            perc_contr_directa_num <= 55 ~ "Medio",
                             TRUE ~ "Alto"))
 
 indicadores_gen$riesgo <- as.factor(indicadores_gen$riesgo)
@@ -364,7 +363,7 @@ También podemos utilizar la visualización para comprender nuestros resultados.
 xgb_res %>%
   collect_metrics() %>%
   filter(.metric == "roc_auc") %>%
-  select(mean, mtry:sample_size) %>%
+  dplyr::select(mean, mtry:sample_size) %>%
   pivot_longer(mtry:sample_size,
                values_to = "value",
                names_to = "parameter"

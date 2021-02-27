@@ -364,7 +364,8 @@ Definir las tareas de preprocesamiento
 indicadores_clas_rec <- recipe(riesgo ~ .,
                                data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
-  step_dummy(all_nominal(), -riesgo, one_hot = TRUE)
+  step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
+  step_zv(all_numeric())
 
 #indicadores_clas_rec
 ```
@@ -482,5 +483,25 @@ rf_importacia_clas %>%
   geom_bar(stat = "identity") + 
   ggtitle("Importancia de los predictores") +
   coord_flip()
+```
+
+## Gráfico con los importantes por subcategoría
+
+Hacer un gráfico mostrando la suma total de la importancia de las categorías de los indicadores que se tuvieron en cuenta.
+```{r}
+separate(data = importantes_clas,
+         col = variable,
+         into = "inicio",
+         sep = "_") %>% 
+  group_by(inicio) %>% 
+  summarise(valor = sum(importancia)) %>% 
+  ggplot() +
+    geom_bar(aes(x = reorder(inicio, valor), y = valor ) ,stat = "identity") +
+    coord_flip() +
+    labs(x = "Importancia",
+         y = "Subcategoría de indicador",
+         title = "Importancia de las subcategorías")+
+    theme(plot.title = element_text(hjust = 0.5))
+    
 ```
 
