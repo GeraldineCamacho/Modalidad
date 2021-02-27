@@ -836,6 +836,17 @@ entidades$departamento_entidad_hos <- NULL
 write.csv(entidades, file = "entidades.csv", row.names = TRUE)
 ```
 
+Pasar variables que no son numéricas a numércias
+```{r}
+entidades$depto_mun_hos <- as.factor(entidades$depto_mun_hos)
+entidades$nombre_entidad_hos <- as.factor(entidades$nombre_entidad_hos)
+
+entidades <- entidades %>% mutate_if(is.character, as.numeric)
+
+entidades_null <- entidades %>% mutate_if(is.character , NULL)
+```
+
+
 pasar proporcion de entidades a numérico
 ```{r}
 as.numeric(Proporcion_Directa_Entidad$PropAdiciones)
