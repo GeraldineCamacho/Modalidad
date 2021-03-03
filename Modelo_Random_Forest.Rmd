@@ -16,6 +16,10 @@ library(tidymodels)
 library(knitr)
 library(readxl)
 library(ggplot2)
+
+# Para poder aplicar el step_smote que hace un especia de upsampling
+install.packages("themis")
+library(themis)
 ```
 
 # Random Forest por regresión
@@ -364,10 +368,12 @@ Definir las tareas de preprocesamiento
 indicadores_clas_rec <- recipe(riesgo ~ .,
                                data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
+  step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
-  step_zv(all_numeric())
+  step_zv(all_numeric()) %>%
+  step_smote(riesgo)
 
-#indicadores_clas_rec
+indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 ```
 
 ## Definir el modelo random forest
@@ -398,6 +404,7 @@ rf_val_clas %>% collect_predictions()
 ```{r}
 rf_val_clas %>% collect_predictions() %>% conf_mat(riesgo, .pred_class)
 ```
+
 Algunas métricas a partir de la matriz de confusión y otra información de la predicción.
 
 - accuracy: indica en que proporción se predicen bien las dos clases.
