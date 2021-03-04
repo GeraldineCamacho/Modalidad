@@ -278,25 +278,36 @@ cor.test(predicciones$perc_contr_directa_num, predicciones$.pred)
 Lectura de los datos
 ```{r}
 indicadores_clas <- read.csv("indicadores_BD.csv")
+
+indicadores_clas <- indicadores_clas %>% 
+  mutate_if(is.character, factor) %>% 
+  rename("inmdm_ind_puntaje_res_2018_mun" = "ind_ppuntaje_res_2018_mun",
+         "indba_ind_riesgo_corrupcion" = "ind_riesgo_corrupcion")
+
+head(indicadores_clas)
 ```
 
 Eliminar columnas que no son necesarias
 ```{r}
 indicadores_clas$X <- NULL
 indicadores_clas$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
-#indicadores_clas$nit_entidad <- NULL
+indicadores_clas$nit_entidad <- NULL
 indicadores_clas$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
 indicadores_clas$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
 indicadores_clas$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
-indicadores_clas$perc_contr_direct_val <- NULL #porque se supone que no tenemos info de contr. 
+
+#Eliminar contratación directa
+indicadores_clas$indba_perc_direc_val <- NULL #porque se supone que no tenemos info de contr. 
+indicadores_clas$indba_perc_cerrada_num <- NULL
+indicadores_clas$indba_perc_cerrada_val <- NULL
 
 #para volver a correr el modelo porque con esta columna genera error 
-#indicadores_clas$nombre_entidad <- NULL
+indicadores_clas$nombre_entidad <- NULL
 
 #pasar a factor las nominales a ver si funciona el modelo
 #indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
-indicadores_clas$orden_entidad <- as.factor(indicadores_clas$orden_entidad)
-indicadores_clas$departamento_entidad <- as.factor(indicadores_clas$departamento_entidad)
+#indicadores_clas$orden_entidad <- as.factor(indicadores_clas$orden_entidad)
+#indicadores_clas$departamento_entidad <- as.factor(indicadores_clas$departamento_entidad)
 
 # eliminar la columna de los deptos porque no es importante 
 #indicadores_gen$departamento_entidad <- NULL
@@ -306,15 +317,13 @@ indicadores_clas$departamento_entidad <- as.factor(indicadores_clas$departamento
 # ver si el modelo hace un mejor trabajo solo con los que tienen contr directa >0
 #indicadores_gen <- indicadores_gen %>% filter(perc_contr_directa_num>0)
 
-indicadores_clas$ind_riesgo_corrupcion <- NULL
-
 #crear los rangos
 indicadores_clas <- indicadores_clas %>% 
-  mutate(riesgo = case_when(perc_contr_directa_num <= 25 ~ "Bajo o Moderado",
-                            perc_contr_directa_num <= 55 ~ "Medio",
+  mutate(riesgo = case_when(indba_perc_cdirec_num <= 25 ~ "Bajo o Moderado",
+                            indba_perc_cdirec_num <= 55 ~ "Medio",
                             TRUE ~ "Alto"))
 
-indicadores_clas$riesgo <- as.factor(indicadores_clas$riesgo)
+#indicadores_clas$riesgo <- as.factor(indicadores_clas$riesgo)
 
 # Eliminar la columna de la que se sacó la información
 #indicadores_clas$perc_contr_directa_num <- NULL
@@ -334,7 +343,7 @@ indicadores_clas$riesgo <- as.factor(indicadores_clas$riesgo)
 #indicadores_clas %>% dplyr::select(perc_contr_directa_num, quartil)
 
 # hacer histograma con la distribucion de los cuartiles
-ggplot(indicadores_clas, aes(perc_contr_directa_num)) + 
+ggplot(indicadores_clas, aes(indba_perc_cdirec_num)) + 
   geom_histogram(col = "white", fill = "gray", aes(y = ..density..)) + 
   geom_density(col = "blue") + 
   geom_vline(xintercept = cartiles[2], color = "red") +
@@ -351,7 +360,7 @@ ggplot(indicadores_clas, aes(perc_contr_directa_num)) +
 
 Eliminar el porcentaje de contratacion directa
 ```{r}
-indicadores_clas$perc_contr_directa_num <- NULL
+indicadores_clas$indba_perc_cdirec_num <- NULL
 ```
 
 División de los datos en train y test
@@ -373,8 +382,9 @@ indicadores_clas_rec <- recipe(riesgo ~ .,
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
-  step_zv(all_numeric()) %>%
-  step_smote(riesgo)
+  step_zv(all_numeric()) 
+#%>%
+#  step_smote(riesgo)
 
 indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 ```
@@ -486,7 +496,7 @@ rf_metric
 
 Gráfico de las variables más importantes
 ```{r}
-rf_importacia_clas %>% 
+importantes_clas %>% 
   mutate(variable = forcats::fct_reorder(variable, importancia)) %>% 
    top_n(20) %>% 
   ggplot(aes(variable, importancia)) + 
@@ -499,6 +509,7 @@ rf_importacia_clas %>%
 
 Hacer un gráfico mostrando la suma total de la importancia de las categorías de los indicadores que se tuvieron en cuenta.
 ```{r}
+# Total
 separate(data = importantes_clas,
          col = variable,
          into = "inicio",
@@ -508,9 +519,24 @@ separate(data = importantes_clas,
   ggplot() +
     geom_bar(aes(x = reorder(inicio, valor), y = valor ) ,stat = "identity") +
     coord_flip() +
-    labs(x = "Importancia",
-         y = "Subcategoría de indicador",
-         title = "Importancia de las subcategorías")+
+    labs(x = "Subcategoría de indicador",
+         y = "Importancia",
+         title = "Importancia total de las subcategorías") +
+    theme(plot.title = element_text(hjust = 0.5))
+
+# Promedio
+separate(data = importantes_clas,
+         col = variable,
+         into = "inicio",
+         sep = "_") %>% 
+  group_by(inicio) %>% 
+  summarise(valor = mean(importancia)) %>% 
+  ggplot() +
+    geom_bar(aes(x = reorder(inicio, valor), y = valor ) ,stat = "identity") +
+    coord_flip() +
+    labs(x = "Subcategoría de indicador",
+         y = "Importancia",
+         title = "Importancia media de las subcategorías")+
     theme(plot.title = element_text(hjust = 0.5))
     
 ```
