@@ -18,8 +18,11 @@ library(readxl)
 library(ggplot2)
 
 # Para poder aplicar el step_smote que hace un especia de upsampling
-install.packages("themis")
+#install.packages("themis")
 library(themis)
+
+
+library(data.table)
 ```
 
 # Random Forest por regresión
@@ -28,7 +31,7 @@ library(themis)
 
 Lectura de los datos
 ```{r}
-supersalud <- read_excel("supersalud_indicadores.xlsx")
+#supersalud <- read_excel("supersalud_indicadores.xlsx")
 indicadores_gen <- read.csv("indicadores_BD.csv")
 ```
 
@@ -281,14 +284,14 @@ Eliminar columnas que no son necesarias
 ```{r}
 indicadores_clas$X <- NULL
 indicadores_clas$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
-indicadores_clas$nit_entidad <- NULL
+#indicadores_clas$nit_entidad <- NULL
 indicadores_clas$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
 indicadores_clas$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
 indicadores_clas$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
 indicadores_clas$perc_contr_direct_val <- NULL #porque se supone que no tenemos info de contr. 
 
 #para volver a correr el modelo porque con esta columna genera error 
-indicadores_clas$nombre_entidad <- NULL
+#indicadores_clas$nombre_entidad <- NULL
 
 #pasar a factor las nominales a ver si funciona el modelo
 #indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
@@ -511,4 +514,164 @@ separate(data = importantes_clas,
     theme(plot.title = element_text(hjust = 0.5))
     
 ```
+
+
+# Prueba de unión indicador supersalud
+
+
+```{r}
+
+#leer datos
+supersalud <- read_excel("supersalud_indicadores.xlsx")
+
+supersalud <- as.data.table(supersalud)
+
+# Para que coincidan los nombres
+supersalud[NIT == "812004010", Entidad := "ESE CAMU DE BUENAVISTA"]
+supersalud[NIT == "891200248", Entidad := "ESE HOSPITAL CLARITA SANTOS"]
+supersalud[NIT == "800193904", Entidad := "ESE HOSPITAL JUAN PABLO II DE ARATOCA"] # tiene 2 NIT
+supersalud[NIT == "890981268", Entidad := "ESE HOSPITAL LA ANUNCIACION DE MUTATA"]
+supersalud[NIT == "900066347", Entidad := "ESE HOSPITAL REGIONAL DE SAN GIL"]
+supersalud[NIT == "800123106", Entidad := "ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA"]
+supersalud[NIT == "834001482", Entidad := "ESE JAIME ALVARADO Y CASTILLA"]
+supersalud[NIT == "820002468", Entidad := "ESE PUESTO DE SALUD DE CIENEGA"]
+supersalud[NIT == "900147959", Entidad := "ESE CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS DE UNE"]
+supersalud[NIT == "891501104", Entidad := "ESE HOSPITAL DE EL TAMBO"] # tiene 2 NIT
+supersalud[NIT == "890981137", Entidad := "ESE HOSPITAL FRANCISCO VALDERRAMA DE TURBO"]
+supersalud[NIT == "890982139", Entidad := "ESE HOSPITAL SAN LORENZO DE LIBORINA"]
+supersalud[NIT == "804005695", Entidad := "ESE SAN ISIDRO"] #tiene 2 NIT pero 8004MAL
+supersalud[NIT == "890802036", Entidad := "HOSPITAL DE SAN MARCOS DE CHINCHINA"]
+supersalud[NIT == "809001086", Entidad := "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS"]
+supersalud[NIT == "800130625", Entidad := "HOSPITAL SAN CRISTOBAL DE CIENAGA"]
+supersalud[NIT == "890680031", Entidad := "HOSPITAL SAN ANTONIO DE ARBELAEZ"]
+supersalud[NIT == "810000913", Entidad := "HOSPITAL SAN FELIX DE LA DORADA"]
+supersalud[NIT == "800204497", Entidad := "HOSPITAL SAN JOSE DE GUACHETA"]
+supersalud[NIT == "890907254", Entidad := "HOSPITAL SAN JUAN DE DIOS DE RIONEGRO"]
+supersalud[NIT == "809001086", Entidad := "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS"]
+supersalud[NIT == "891900356", Entidad := "HOSPITAL SANTANDER DE CAICEDONIA"]
+supersalud[NIT == "804015007", Entidad := "IPS CENTRO DE SALUD DE ENCINO"]
+
+supersalud_unicos <- supersalud %>% unique(Entidad)
+
+#supersalud <- supersalud %>% 
+  filter(Entidad %in% supersalud_unicos$Entidad)
+```
+
+```{r}
+prueba_union <- indicadores_clas[ , c(1:18, 182)]
+```
+
+```{r}
+supersalud %>% group_by(NIT)
+supersalud %>% distinct(Entidad)
+prueba_union %>% distinct(nit_entidad)
+prueba_union %>% distinct(nombre_entidad)
+
+#ver cuántos coinciden por nombre exacto
+supersalud %>% 
+  filter(Entidad %in% prueba_union$nombre_entidad)
+```
+
+
+Cambios en supersalud
+```{r}
+# reemplazar EMPRESA SOCIAL DEL ESTADO por ESE
+#supersalud[Entidad]
+
+#eliminar tildes
+supersalud$Entidad <- chartr('ÁÉÍÓÚ', 'AEIOU', supersalud$Entidad)
+
+#eliminar puntos
+supersalud$Entidad  <- gsub("[.]", "", supersalud$Entidad )
+
+```
+
+
+
+```{r}
+#hacer el join o merge
+prueba_union <- prueba_union %>% 
+  separate(nombre_entidad, sep = " - ", into = c("Depto", "Hospital")) %>% 
+  dplyr::select(-Depto) %>% 
+  separate(nit_entidad, sep = "-", into = "nit_entidad")
+  
+#eliminar tildes
+prueba_union$Hospital <- chartr('ÁÉÍÓÚ', 'AEIOU', prueba_union$Hospital)
+
+#eliminar puntos
+prueba_union$Hospital <- gsub("[.]", "", prueba_union$Hospital)
+
+prueba_union$nit_entidad <- gsub("[.]", "", prueba_union$nit_entidad)
+  
+#ver cuántos coinciden 
+supersalud %>% filter(Entidad %in% prueba_union$Hospital)
+
+no_coinciden_super <- supersalud %>% filter(!(NIT %in% prueba_union$nit_entidad) & 
+                                            !(Entidad %in% prueba_union$Hospital))
+
+no_coinciden_puni <- prueba_union %>% filter(!(nit_entidad %in% supersalud$NIT) &
+                                            !(Hospital %in% supersalud$Entidad))
+
+# Los que sí coinciden por nit o por nombre (787)
+prueba_union %>% filter(!(nit_entidad %in% supersalud$NIT) &
+                                            (Hospital %in% supersalud$Entidad))
+
+coinciden_prueba <- prueba_union %>% 
+  filter(!(nit_entidad %in% supersalud$NIT) &
+        (Hospital %in% supersalud$Entidad)) 
+#%>% 
+ 
+supersalud %>% filter(Entidad %in% coinciden_prueba$Hospital)
+
+  merge(x = coinciden_prueba, y = supersalud,
+        by.x = "Hospital",
+        by.y = "Entidad",
+        all.x = TRUE,
+        all.y = FALSE) %>% 
+  select(-nit_entidad) %>% 
+  rename("nit_entidad" = "NIT") %>% 
+  select(names(prueba_union))
+
+no_coinciden_puni %>% filter(Hospital %in% no_coinciden_super$Hospital)
+
+prueba_union %>% filter(nit_entidad %in% supersalud$NIT)
+
+prueba_union %>% 
+  filter((nit_entidad %in% supersalud$NIT))
+
+```
+
+Para cambiar en supersalud
+```{r}
+
+DT[UID == "17-12-6670053-6063825", valor_inicial:=1568000]
+
+Supersalud --- indicadres
+812004010 ESE CAMU BUENAVISTA --- No registra , ESE CAMU DE BUENAVISTA
+891200248 ESE HOSPITAL CLARITA SANTOS DE SANDONA --- No registra, ESE HOSPITAL CLARITA SANTOS
+800193904 ESE HOSPITAL JUAN PABLO II ARATOCA --- 832193904, ESE HOSPITAL JUAN PABLO II DE ARATOCA
+890981268 ESE HOSPITAL LA ANUNCIACION --- No registra, ESE HOSPITAL LA ANUNCIACION DE MUTATA
+900066347 ESE HOSPITAL REGIONAL SAN GIL --- No registra, ESE HOSPITAL REGIONAL DE SAN GIL
+800123106 ESE HOSPITAL VENANCIO DIAZ DIAZ --- No registra,ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA
+834001482 EMPRESA SOCIAL DEL ESTADO JAIME ALVARADO Y CASTILLA --- ESE JAIME ALVARADO Y CASTILLA
+820002468 EMPRESA SOCIAL DEL ESTADO PUESTO DE SALUD DE CIENEGA --- No registra, ESE PUESTO DE SALUD DE CIENEGA
+900147959 EMPRESA SOCIAL DEL ESTADO CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS --- No registra, ESE CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS DE UNE
+891501104 EMPRESA SOCIAL DEL ESTADO HOSPITAL DE EL TAMBO CAUCA --- 981501104, ESE HOSPITAL DE EL TAMBO
+890981137 EMPRESA SOCIAL DEL ESTADO HOSPITAL FRANCISCO VALDERRAMA --- No registra, ESE HOSPITAL FRANCISCO VALDERRAMA DE TURBO
+890982139 EMPRESA SOCIAL DEL ESTADO HOSPITAL SAN LORENZO --- No registra, ESE HOSPITAL SAN LORENZO DE LIBORINA
+817003532 QUILISALUD ESE --- 817.003.532, ESE QUILISALUD
+804005695 ESE SAN ISIDRO DEL MUNICIPIO DE TONA --- 800400695, ESE SAN ISIDRO 8004MAL
+890802036 ESE HOSPITAL SAN MARCOS --- No registra, HOSPITAL DE SAN MARCOS DE CHINCHINA
+809001086 HOSPITAL SERAFIN MONTAÑA CUELLAR ESE --- No registra, HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS
+800130625 ESE HOSPITAL SAN CRISTOBAL DE CIENAGA --- No registra, HOSPITAL SAN CRISTOBAL DE CIENAGA
+890680031 ESE HOSPITAL SAN ANTONIO DE ARBELAEZ --- No registra, HOSPITAL SAN ANTONIO DE ARBELAEZ
+810000913 ESE HOSPITAL SAN FELIX - LA DORADA --- No registra, HOSPITAL SAN FELIX DE LA DORADA
+800204497 ESE HOSPITAL SAN JOSE DE GUACHETA --- No registra, HOSPITAL SAN JOSE DE GUACHETA
+890907254 HOSPITAL SAN JUAN DE DIOS ESE RIONEGRO - ANTIOQUIA --- No registra, HOSPITAL SAN JUAN DE DIOS DE RIONEGRO
+809001086 HOSPITAL SERAFIN MONTAÑA CUELLAR ESE --- No registra, HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS
+891900356 ESE HOSPITAL SANTANDER --- No registra, HOSPITAL SANTANDER DE CAICEDONIA
+804015007 ESE CENTRO DE SALUD ENCINO --- No registra, IPS CENTRO DE SALUD DE ENCINO
+```
+
+
 
