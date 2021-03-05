@@ -552,7 +552,7 @@ supersalud <- read_excel("supersalud_indicadores.xlsx")
 
 supersalud <- as.data.table(supersalud)
 
-# Para que coincidan los nombres
+# Para que coincidan los nombres corregir los nombres de supersalud
 supersalud[NIT == "812004010", Entidad := "ESE CAMU DE BUENAVISTA"]
 supersalud[NIT == "891200248", Entidad := "ESE HOSPITAL CLARITA SANTOS"]
 supersalud[NIT == "800193904", Entidad := "ESE HOSPITAL JUAN PABLO II DE ARATOCA"] # tiene 2 NIT
@@ -579,12 +579,51 @@ supersalud[NIT == "804015007", Entidad := "IPS CENTRO DE SALUD DE ENCINO"]
 
 supersalud_unicos <- supersalud %>% unique(Entidad)
 
+data.table(supersalud %>% count(Entidad) %>% arrange(desc(n)))
+
+
+data.table(supersalud %>% group_by(Entidad)) %>% arrange(Entidad)
 #supersalud <- supersalud %>% 
   filter(Entidad %in% supersalud_unicos$Entidad)
+  
+supersalud %>% count(NIT, Entidad) %>% arrange(desc(n))
+
+supersalud %>% group_by(Entidad) %>% summarise(dis = n_distinct(NIT)) %>% arrange(desc(dis))
 ```
 
 ```{r}
-prueba_union <- indicadores_clas[ , c(1:18, 182)]
+
+indicadores_prueba <- read.csv("indicadores_BD.csv")
+
+indicadores_prueba <- indicadores_prueba %>% 
+  mutate_if(is.character, factor) %>% 
+  rename("inmdm_ind_puntaje_res_2018_mun" = "ind_ppuntaje_res_2018_mun",
+         "indba_ind_riesgo_corrupcion" = "ind_riesgo_corrupcion")
+
+indicadores_prueba$X <- NULL
+indicadores_prueba$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
+#indicadores_prueba$nit_entidad <- NULL
+indicadores_prueba$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
+indicadores_prueba$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_prueba$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
+
+#Eliminar contratación directa
+indicadores_prueba$indba_perc_direc_val <- NULL #porque se supone que no tenemos info de contr. 
+indicadores_prueba$indba_perc_cerrada_num <- NULL
+indicadores_prueba$indba_perc_cerrada_val <- NULL
+
+#para volver a correr el modelo porque con esta columna genera error 
+#indicadores_clas$nombre_entidad <- NULL
+
+
+indicadores_prueba <- indicadores_prueba %>% 
+  mutate(riesgo = case_when(indba_perc_cdirec_num <= 25 ~ "Bajo o Moderado",
+                            indba_perc_cdirec_num <= 55 ~ "Medio",
+                            TRUE ~ "Alto"))
+
+head(indicadores_prueba)
+
+prueba_union <- indicadores_prueba[ , c(1:20, 182)]
 ```
 
 ```{r}
