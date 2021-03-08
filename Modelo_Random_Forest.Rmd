@@ -545,8 +545,17 @@ separate(data = importantes_clas,
 ```
 
 
-# Prueba de unión indicador supersalud
 
+
+
+
+
+
+
+
+
+
+# Prueba de unión indicador supersalud
 
 ```{r}
 
@@ -652,6 +661,8 @@ supersalud$Entidad <- chartr('ÁÉÍÓÚ', 'AEIOU', supersalud$Entidad)
 #eliminar puntos
 supersalud$Entidad  <- gsub("[.]", "", supersalud$Entidad )
 
+supersalud$NIT <- as.character(supersalud$NIT)
+
 ```
 
 
@@ -687,29 +698,18 @@ indicadores_prueba %>% filter((nit_entidad %in% supersalud$NIT) |
 # Los que sí coinciden por nit (797)
 indicadores_prueba %>% filter((nit_entidad %in% supersalud$NIT))
 
-# Los que sí coinciden por nit (797)
+# Los que sí coinciden por nombre pero no por NIT (01)
 indicadores_prueba %>% filter((Hospital %in% supersalud$Entidad) &
                                 !(nit_entidad %in% supersalud$NIT))
 
-# Filtrar los que no coinciden por NIT pero sí por nombre para hacer un merge y así reemplazar los NIT erroneos de secop, luego hacer un rbind para pegar las filas y ya
-coinciden_prueba <- indicadores_prueba %>% 
-  filter(!(nit_entidad %in% supersalud$NIT) &
-        (Hospital %in% supersalud$Entidad)) 
-#%>% 
- 
-
-  merge(x = coinciden_prueba, y = supersalud,
-        by.x = "Hospital",
-        by.y = "Entidad",
-        all.x = TRUE,
-        all.y = FALSE) %>% 
-  select(-nit_entidad) %>% 
-  rename("nit_entidad" = "NIT") %>% 
-  select(names(prueba_union))
+indicadores_prueba_2 <- merge(x = indicadores_prueba,
+                              y = supersalud,
+                              by.x = "nit_entidad",
+                              by.y = "NIT",
+                              all.x = TRUE,
+                              all.y = FALSE) %>%
+  select(-Hospital, -Entidad)
   
-  
-  
-coinciden_super <- supersalud %>% filter(Entidad %in% coinciden_prueba$Hospital)
 
 no_coinciden_puni %>% filter(Hospital %in% no_coinciden_super$Hospital)
 
@@ -718,12 +718,20 @@ prueba_union %>% filter(nit_entidad %in% supersalud$NIT)
 prueba_union %>% 
   filter((nit_entidad %in% supersalud$NIT))
 
+indicadores_prueba %>% filter(nit_entidad > 0)
+
+indicadores_prueba_2 <- indicadores_prueba
+
+indicadores_prueba_2$nit_entidad <- as.numeric(indicadores_prueba_2$nit_entidad)
+
 ```
 
 para cambiar el secop (segundos)
 ```{r}
 
 #supersalud[NIT == "812004010", Entidad := "ESE CAMU DE BUENAVISTA"]
+
+indicadores_prueba <- as.data.table(indicadores_prueba)
 
 indicadores_prueba[Hospital == "ESE CAMU DE BUENAVISTA", nit_entidad := "812004010"]
 indicadores_prueba[Hospital == "ESE CAMU DEL PRADO", nit_entidad := "812002836"]
@@ -740,7 +748,7 @@ indicadores_prueba[Hospital == "ESE HOSPITAL REGIONAL DE SAN GIL", nit_entidad :
 indicadores_prueba[Hospital == "ESE HOSPITAL REGIONAL NORTE", nit_entidad := "807008857"]
 indicadores_prueba[Hospital == "ESE HOSPITAL SAN JOSE", nit_entidad := "891901745"]
 indicadores_prueba[Hospital == "ESE HOSPITAL SAN LORENZO DE LIBORINA", nit_entidad := "890982139"]
-indicadores_prueba[Hospital == "ESE HOSPITAL SAN VICENTE DE PAUL", nit_entidad := ""] # ojo con este
+#indicadores_prueba[Hospital == "ESE HOSPITAL SAN VICENTE DE PAUL", nit_entidad := ""] # ojo con este
 indicadores_prueba[Hospital == "ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA", nit_entidad := "800123106"]
 indicadores_prueba[Hospital == "ESE JAIME ALVARADO Y CASTILLA", nit_entidad := "834001482"]
 indicadores_prueba[Hospital == "ESE PUESTO DE SALUD DE CIENEGA", nit_entidad := "820002468"]
