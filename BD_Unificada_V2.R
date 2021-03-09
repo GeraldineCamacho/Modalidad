@@ -442,4 +442,110 @@ for (x in columnas_numericas) {
   indicadores_BD[is.na(indicadores_BD[,x]), x] <- cols_mean[x]
 }
 
+# write.csv(indicadores_BD, file = "indicadores_BD.csv", row.names = TRUE)
+
+
+## Unión indicadores supersalud ----
+
+### Preparación de datos indicadores_BD ----
+
+# indicadores_BD <- read.csv("indicadores_BD.csv")
+
+indicadores_BD <- indicadores_BD %>% 
+  mutate_if(is.character, factor) %>% 
+  rename("inmdm_ind_puntaje_res_2018_mun" = "ind_ppuntaje_res_2018_mun",
+         "indba_ind_riesgo_corrupcion" = "ind_riesgo_corrupcion")
+
+# Separar el nombre del hospital para facilidad de comparación de datos
+indicadores_BD <- indicadores_BD %>% 
+  separate(nombre_entidad, sep = " - ", into = c("Depto", "Hospital"), remove = FALSE) %>% 
+  dplyr::select(-Depto) %>% 
+  separate(nit_entidad, sep = "-", into = "nit_entidad")
+
+# Cambios para facilidad de comparación de datos
+indicadores_BD$Hospital <- chartr('ÁÉÍÓÚ', 'AEIOU', indicadores_BD$Hospital) #Eliminar tildes
+indicadores_BD$Hospital <- gsub("[.]", "", indicadores_BD$Hospital) #Eliminar puntos
+indicadores_BD$nit_entidad <- gsub("[.]", "", indicadores_BD$nit_entidad) #Eliminar puntos
+
+# Cambiar los NITS (Estos coicidían por Hospital pero no por NIT)
+indicadores_BD <- as.data.table(indicadores_BD)
+
+indicadores_BD[Hospital == "ESE CAMU DE BUENAVISTA", nit_entidad := "812004010"]
+indicadores_BD[Hospital == "ESE CAMU DEL PRADO", nit_entidad := "812002836"]
+indicadores_BD[Hospital == "ESE CENTRO DE SALUD SAN VICENTE FERRER", nit_entidad := "820003431"]
+indicadores_BD[Hospital == "ESE CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS DE UNE", nit_entidad := "900147959"]
+indicadores_BD[Hospital == "ESE HOSPITAL CLARITA SANTOS", nit_entidad := "891200248"]
+indicadores_BD[Hospital == "ESE HOSPITAL DE EL TAMBO", nit_entidad := "891501104"]
+indicadores_BD[Hospital == "ESE HOSPITAL FRANCISCO VALDERRAMA DE TURBO", nit_entidad := "890981137"]
+indicadores_BD[Hospital == "ESE HOSPITAL JUAN PABLO II DE ARATOCA", nit_entidad := "800193904"]
+indicadores_BD[Hospital == "ESE HOSPITAL LA ANUNCIACION DE MUTATA", nit_entidad := "890981268"]
+indicadores_BD[Hospital == "ESE HOSPITAL NUESTRA SEÑORA DE LA CANDELARIA", nit_entidad := "890981719"]
+indicadores_BD[Hospital == "ESE HOSPITAL NUESTRA SEÑORA SANTA ANA", nit_entidad := "819000626"]
+indicadores_BD[Hospital == "ESE HOSPITAL REGIONAL DE SAN GIL", nit_entidad := "900066347"]
+indicadores_BD[Hospital == "ESE HOSPITAL REGIONAL NORTE", nit_entidad := "807008857"]
+indicadores_BD[Hospital == "ESE HOSPITAL SAN JOSE", nit_entidad := "891901745"]
+indicadores_BD[Hospital == "ESE HOSPITAL SAN LORENZO DE LIBORINA", nit_entidad := "890982139"]
+#indicadores_BD[Hospital == "ESE HOSPITAL SAN VICENTE DE PAUL", nit_entidad := ""] # ojo con este
+indicadores_BD[Hospital == "ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA", nit_entidad := "800123106"]
+indicadores_BD[Hospital == "ESE JAIME ALVARADO Y CASTILLA", nit_entidad := "834001482"]
+indicadores_BD[Hospital == "ESE PUESTO DE SALUD DE CIENEGA", nit_entidad := "820002468"]
+indicadores_BD[Hospital == "ESE SAN ISIDRO", nit_entidad := "804005695"]
+indicadores_BD[Hospital == "HOSPITAL DE SAN MARCOS DE CHINCHINA", nit_entidad := "890802036"]
+indicadores_BD[Hospital == "HOSPITAL SAN ANTONIO DE ARBELAEZ", nit_entidad := "890680031"]
+indicadores_BD[Hospital == "HOSPITAL SAN CRISTOBAL DE CIENAGA", nit_entidad := "800130625"]
+indicadores_BD[Hospital == "HOSPITAL SAN FELIX DE LA DORADA", nit_entidad := "810000913"]
+indicadores_BD[Hospital == "HOSPITAL SAN JOSE DE GUACHETA", nit_entidad := "800204497"]
+indicadores_BD[Hospital == "HOSPITAL SAN JUAN DE DIOS DE RIONEGRO", nit_entidad := "890907254"]
+indicadores_BD[Hospital == "HOSPITAL SANTANDER DE CAICEDONIA", nit_entidad := "891900356"]
+indicadores_BD[Hospital == "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS", nit_entidad := "809001086"]
+indicadores_BD[Hospital == "IPS CENTRO DE SALUD DE ENCINO", nit_entidad := "804015007"]
+
+### Leer datos supersalud ----
+supersalud <- read_excel("supersalud_indicadores.xlsx")
+supersalud <- as.data.table(supersalud)
+
+# Para que coincidan los nombres corregir los nombres de supersalud
+supersalud[NIT == "812004010", Entidad := "ESE CAMU DE BUENAVISTA"]
+supersalud[NIT == "891200248", Entidad := "ESE HOSPITAL CLARITA SANTOS"]
+supersalud[NIT == "800193904", Entidad := "ESE HOSPITAL JUAN PABLO II DE ARATOCA"] # tiene 2 NIT
+supersalud[NIT == "890981268", Entidad := "ESE HOSPITAL LA ANUNCIACION DE MUTATA"]
+supersalud[NIT == "900066347", Entidad := "ESE HOSPITAL REGIONAL DE SAN GIL"]
+supersalud[NIT == "800123106", Entidad := "ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA"]
+supersalud[NIT == "834001482", Entidad := "ESE JAIME ALVARADO Y CASTILLA"]
+supersalud[NIT == "820002468", Entidad := "ESE PUESTO DE SALUD DE CIENEGA"]
+supersalud[NIT == "900147959", Entidad := "ESE CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS DE UNE"]
+supersalud[NIT == "891501104", Entidad := "ESE HOSPITAL DE EL TAMBO"] # tiene 2 NIT
+supersalud[NIT == "890981137", Entidad := "ESE HOSPITAL FRANCISCO VALDERRAMA DE TURBO"]
+supersalud[NIT == "890982139", Entidad := "ESE HOSPITAL SAN LORENZO DE LIBORINA"]
+supersalud[NIT == "804005695", Entidad := "ESE SAN ISIDRO"] #tiene 2 NIT pero 8004MAL
+supersalud[NIT == "890802036", Entidad := "HOSPITAL DE SAN MARCOS DE CHINCHINA"]
+supersalud[NIT == "809001086", Entidad := "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS"]
+supersalud[NIT == "800130625", Entidad := "HOSPITAL SAN CRISTOBAL DE CIENAGA"]
+supersalud[NIT == "890680031", Entidad := "HOSPITAL SAN ANTONIO DE ARBELAEZ"]
+supersalud[NIT == "810000913", Entidad := "HOSPITAL SAN FELIX DE LA DORADA"]
+supersalud[NIT == "800204497", Entidad := "HOSPITAL SAN JOSE DE GUACHETA"]
+supersalud[NIT == "890907254", Entidad := "HOSPITAL SAN JUAN DE DIOS DE RIONEGRO"]
+supersalud[NIT == "809001086", Entidad := "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS"]
+supersalud[NIT == "891900356", Entidad := "HOSPITAL SANTANDER DE CAICEDONIA"]
+supersalud[NIT == "804015007", Entidad := "IPS CENTRO DE SALUD DE ENCINO"]
+
+# Cambios en supersalud
+supersalud$Entidad <- chartr('ÁÉÍÓÚ', 'AEIOU', supersalud$Entidad) #Eliminar tildes
+supersalud$Entidad  <- gsub("[.]", "", supersalud$Entidad ) #Eliminar puntos
+supersalud$NIT <- as.character(supersalud$NIT) #Pasa a caracter para merge
+
+### Hacer el join o merge ----
+indicadores_BD <- merge(x = indicadores_BD,
+                        y = supersalud,
+                        by.x = "nit_entidad",
+                        by.y = "NIT",
+                        all.x = TRUE,
+                        all.y = FALSE) %>%
+  select(-Hospital, -Entidad)
+
+indicadores_BD <- indicadores_BD %>% 
+  rename("supers_ind2_efectividad_en_auditoria" = "Indicador2: Efectividad en la auditoría para el mejoramiento continuo de la calidad",
+         "supers_ind10_oportunidad_entrega_reporte_info" = "Indicador10: Oportunidad en la entrega del reporte de información en Cumplimiento de la Circular Única o norma que la sustituya.")
+
+## GUARDAR .csv ---- 
 write.csv(indicadores_BD, file = "indicadores_BD.csv", row.names = TRUE)
