@@ -239,7 +239,7 @@ Lectura de los datos
 ```{r}
 indicadores_gen <- read.csv("indicadores_BD.csv")
 
-head(indicadores_clas)
+head(indicadores_gen)
 ```
 
 Eliminar columnas que no son necesarias
@@ -258,6 +258,9 @@ indicadores_gen$indba_perc_cerrada_val <- NULL
 
 #para volver a correr el modelo porque con esta columna genera error 
 indicadores_gen$nombre_entidad <- NULL
+
+# eliminar supersalud que no sé manejar jeje
+indicadores_gen$supers_ind2_efectividad_en_auditoria <- NULL
 
 #pasar a factor las nominales a ver si funciona el modelo
 #indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
@@ -317,10 +320,12 @@ Eliminar el porcentaje de contratacion directa
 ```{r}
 indicadores_gen$indba_perc_cdirec_num <- NULL
 
+indicadores_gen$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_gen$supers_ind10_oportunidad_entrega_reporte_info)] <- "NO REGISTRA"
+
 indicadores_gen <- indicadores_gen %>% 
-  mutate_if(is.character, factor) %>% 
-  rename("inmdm_ind_puntaje_res_2018_mun" = "ind_ppuntaje_res_2018_mun",
-         "indba_ind_riesgo_corrupcion" = "ind_riesgo_corrupcion")
+  mutate_if(is.character, factor)
+
+head(indicadores_gen[,182:184], 10)
 ```
 
 División de los datos en train y test
@@ -439,16 +444,6 @@ final_xgb <- finalize_workflow(
 final_xgb
 ```
 
-```{r}
-#install.packages("vip")
-#library(vip)
-
-final_xgb %>%
-  fit(data = vb_train) %>%
-  pull_workflow_fit() %>%
-  vip(geom = "col",
-      num_features = 20L)
-```
 
 
 ¡Es hora de volver al conjunto de pruebas! Usemos last_fit () para ajustar nuestro modelo una última vez a los datos de entrenamiento y evaluar nuestro modelo una última vez en el conjunto de pruebas. Tenga en cuenta que esta es la primera vez que utilizamos los datos de prueba durante todo este análisis de modelado.
