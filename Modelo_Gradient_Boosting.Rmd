@@ -368,10 +368,31 @@ xgb_grid <- grid_latin_hypercube(
 
 xgb_grid
 ```
+
+
+Definir las tareas de preprocesamiento
+
+- Normalizar las variables numéricas
+-  Crear variables dummyes con las variables categóricas
+
+```{r}
+indicadores_gen_rec <- recipe(riesgo ~ .,
+                               data = indicadores_gen) %>% 
+  step_normalize(all_numeric()) %>% 
+  step_other(departamento_entidad) %>% 
+  step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
+  step_zv(all_numeric()) 
+#%>%
+#  step_smote(riesgo)
+
+indicadores_gen_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
+```
+
+
 Pongamos la especificación del modelo en un flujo de trabajo para mayor comodidad. Como no tenemos ningún preprocesamiento de datos complicado, podemos usar add_formula () como nuestro preprocesador de datos.
 ```{r}
 xgb_wf <- workflow() %>%
-  add_formula(riesgo ~ .) %>%
+  add_recipe(indicadores_gen_rec) %>% 
   add_model(xgb_spec)
 
 xgb_wf
