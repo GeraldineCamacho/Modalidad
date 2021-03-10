@@ -392,7 +392,8 @@ indicadores_gen_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 Pongamos la especificación del modelo en un flujo de trabajo para mayor comodidad. Como no tenemos ningún preprocesamiento de datos complicado, podemos usar add_formula () como nuestro preprocesador de datos.
 ```{r}
 xgb_wf <- workflow() %>%
-  add_recipe(indicadores_gen_rec) %>% 
+#  add_recipe(indicadores_gen_rec) %>% 
+  add_formula(riesgo ~ .) %>% 
   add_model(xgb_spec)
 
 xgb_wf
