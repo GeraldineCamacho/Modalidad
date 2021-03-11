@@ -375,7 +375,8 @@ División de los datos en train y test
 ```{r}
 set.seed(456)
 indicadores_clas_split <- initial_split(indicadores_clas,
-                                        strata = riesgo)
+                                        strata = riesgo,
+                                        prop = 4/5)
 indicadores_clas_train <- training(indicadores_clas_split)
 indicadores_clas_test <- testing(indicadores_clas_split)
 ```
