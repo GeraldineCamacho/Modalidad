@@ -550,3 +550,449 @@ separate(data = importantes_clas,
 ```
 
 
+
+
+
+
+
+
+
+
+
+
+# Prueba de unión indicador supersalud
+
+```{r}
+
+#leer datos
+supersalud <- read_excel("supersalud_indicadores.xlsx")
+
+supersalud <- as.data.table(supersalud)
+
+# Para que coincidan los nombres corregir los nombres de supersalud
+supersalud[NIT == "812004010", Entidad := "ESE CAMU DE BUENAVISTA"]
+supersalud[NIT == "891200248", Entidad := "ESE HOSPITAL CLARITA SANTOS"]
+supersalud[NIT == "800193904", Entidad := "ESE HOSPITAL JUAN PABLO II DE ARATOCA"] # tiene 2 NIT
+supersalud[NIT == "890981268", Entidad := "ESE HOSPITAL LA ANUNCIACION DE MUTATA"]
+supersalud[NIT == "900066347", Entidad := "ESE HOSPITAL REGIONAL DE SAN GIL"]
+supersalud[NIT == "800123106", Entidad := "ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA"]
+supersalud[NIT == "834001482", Entidad := "ESE JAIME ALVARADO Y CASTILLA"]
+supersalud[NIT == "820002468", Entidad := "ESE PUESTO DE SALUD DE CIENEGA"]
+supersalud[NIT == "900147959", Entidad := "ESE CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS DE UNE"]
+supersalud[NIT == "891501104", Entidad := "ESE HOSPITAL DE EL TAMBO"] # tiene 2 NIT
+supersalud[NIT == "890981137", Entidad := "ESE HOSPITAL FRANCISCO VALDERRAMA DE TURBO"]
+supersalud[NIT == "890982139", Entidad := "ESE HOSPITAL SAN LORENZO DE LIBORINA"]
+supersalud[NIT == "804005695", Entidad := "ESE SAN ISIDRO"] #tiene 2 NIT pero 8004MAL
+supersalud[NIT == "890802036", Entidad := "HOSPITAL DE SAN MARCOS DE CHINCHINA"]
+supersalud[NIT == "809001086", Entidad := "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS"]
+supersalud[NIT == "800130625", Entidad := "HOSPITAL SAN CRISTOBAL DE CIENAGA"]
+supersalud[NIT == "890680031", Entidad := "HOSPITAL SAN ANTONIO DE ARBELAEZ"]
+supersalud[NIT == "810000913", Entidad := "HOSPITAL SAN FELIX DE LA DORADA"]
+supersalud[NIT == "800204497", Entidad := "HOSPITAL SAN JOSE DE GUACHETA"]
+supersalud[NIT == "890907254", Entidad := "HOSPITAL SAN JUAN DE DIOS DE RIONEGRO"]
+supersalud[NIT == "809001086", Entidad := "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS"]
+supersalud[NIT == "891900356", Entidad := "HOSPITAL SANTANDER DE CAICEDONIA"]
+supersalud[NIT == "804015007", Entidad := "IPS CENTRO DE SALUD DE ENCINO"]
+
+#supersalud_unicos <- supersalud %>% unique(Entidad)
+
+data.table(supersalud %>% count(Entidad) %>% arrange(desc(n)))
+
+
+data.table(supersalud %>% group_by(Entidad)) %>% arrange(Entidad)
+#supersalud <- supersalud %>% 
+  filter(Entidad %in% supersalud_unicos$Entidad)
+  
+supersalud %>% count(NIT, Entidad) %>% arrange(desc(n))
+
+supersalud %>% group_by(Entidad) %>% summarise(dis = n_distinct(NIT)) %>% arrange(desc(dis))
+```
+
+```{r}
+
+indicadores_prueba <- read.csv("indicadores_BD.csv")
+
+indicadores_prueba <- indicadores_prueba %>% 
+  mutate_if(is.character, factor) %>% 
+  rename("inmdm_ind_puntaje_res_2018_mun" = "ind_ppuntaje_res_2018_mun",
+         "indba_ind_riesgo_corrupcion" = "ind_riesgo_corrupcion")
+
+indicadores_prueba$X <- NULL
+indicadores_prueba$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
+#indicadores_prueba$nit_entidad <- NULL
+indicadores_prueba$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
+indicadores_prueba$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
+indicadores_prueba$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
+
+#Eliminar contratación directa
+indicadores_prueba$indba_perc_direc_val <- NULL #porque se supone que no tenemos info de contr. 
+indicadores_prueba$indba_perc_cerrada_num <- NULL
+indicadores_prueba$indba_perc_cerrada_val <- NULL
+
+#para volver a correr el modelo porque con esta columna genera error 
+#indicadores_clas$nombre_entidad <- NULL
+
+
+indicadores_prueba <- indicadores_prueba %>% 
+  mutate(riesgo = case_when(indba_perc_cdirec_num <= 25 ~ "Bajo o Moderado",
+                            indba_perc_cdirec_num <= 55 ~ "Medio",
+                            TRUE ~ "Alto"))
+
+indicadores_prueba <- indicadores_prueba[ , c(1:21, 186)]
+
+head(indicadores_prueba)
+```
+
+```{r}
+supersalud %>% group_by(NIT)
+supersalud %>% distinct(Entidad)
+indicadores_prueba %>% distinct(nit_entidad)
+indicadores_prueba %>% distinct(nombre_entidad)
+
+#ver cuántos coinciden por nombre exacto
+supersalud %>% 
+  filter(Entidad %in% prueba_union$nombre_entidad)
+```
+
+
+Cambios en supersalud
+```{r}
+# reemplazar EMPRESA SOCIAL DEL ESTADO por ESE
+#supersalud[Entidad]
+
+#eliminar tildes
+supersalud$Entidad <- chartr('ÁÉÍÓÚ', 'AEIOU', supersalud$Entidad)
+
+#eliminar puntos
+supersalud$Entidad  <- gsub("[.]", "", supersalud$Entidad )
+
+supersalud$NIT <- as.character(supersalud$NIT)
+
+```
+
+
+
+```{r}
+#hacer el join o merge
+indicadores_prueba <- indicadores_prueba %>% 
+  separate(nombre_entidad, sep = " - ", into = c("Depto", "Hospital"), remove = FALSE) %>% 
+  dplyr::select(-Depto) %>% 
+  separate(nit_entidad, sep = "-", into = "nit_entidad")
+  
+#eliminar tildes
+indicadores_prueba$Hospital <- chartr('ÁÉÍÓÚ', 'AEIOU', indicadores_prueba$Hospital)
+
+#eliminar puntos
+indicadores_prueba$Hospital <- gsub("[.]", "", indicadores_prueba$Hospital)
+
+indicadores_prueba$nit_entidad <- gsub("[.]", "", indicadores_prueba$nit_entidad)
+  
+#ver cuántos coinciden 
+supersalud %>% filter(Entidad %in% indicadores_prueba$Hospital)
+
+#no_coinciden_super <- supersalud %>% filter(!(NIT %in% prueba_union$nit_entidad) & 
+#                                            !(Entidad %in% prueba_union$Hospital))
+
+#no_coinciden_puni <- prueba_union %>% filter(!(nit_entidad %in% supersalud$NIT) &
+#                                            !(Hospital %in% supersalud$Entidad))
+
+# Los que sí coinciden por nit o por nombre (862)
+indicadores_prueba %>% filter((nit_entidad %in% supersalud$NIT) |
+                                            (Hospital %in% supersalud$Entidad))
+
+# Los que sí coinciden por nit (797)
+indicadores_prueba %>% filter((nit_entidad %in% supersalud$NIT))
+
+# Los que sí coinciden por nombre pero no por NIT (01)
+indicadores_prueba %>% filter((Hospital %in% supersalud$Entidad) &
+                                !(nit_entidad %in% supersalud$NIT))
+
+indicadores_prueba_2 <- merge(x = indicadores_prueba,
+                              y = supersalud,
+                              by.x = "nit_entidad",
+                              by.y = "NIT",
+                              all.x = TRUE,
+                              all.y = FALSE) %>%
+  select(-Hospital, -Entidad)
+  
+
+no_coinciden_puni %>% filter(Hospital %in% no_coinciden_super$Hospital)
+
+prueba_union %>% filter(nit_entidad %in% supersalud$NIT)
+
+prueba_union %>% 
+  filter((nit_entidad %in% supersalud$NIT))
+
+indicadores_prueba %>% filter(nit_entidad > 0)
+
+indicadores_prueba_2 <- indicadores_prueba
+
+indicadores_prueba_2$nit_entidad <- as.numeric(indicadores_prueba_2$nit_entidad)
+
+```
+
+para cambiar el secop (segundos)
+```{r}
+
+#supersalud[NIT == "812004010", Entidad := "ESE CAMU DE BUENAVISTA"]
+
+indicadores_prueba <- as.data.table(indicadores_prueba)
+
+indicadores_prueba[Hospital == "ESE CAMU DE BUENAVISTA", nit_entidad := "812004010"]
+indicadores_prueba[Hospital == "ESE CAMU DEL PRADO", nit_entidad := "812002836"]
+indicadores_prueba[Hospital == "ESE CENTRO DE SALUD SAN VICENTE FERRER", nit_entidad := "820003431"]
+indicadores_prueba[Hospital == "ESE CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS DE UNE", nit_entidad := "900147959"]
+indicadores_prueba[Hospital == "ESE HOSPITAL CLARITA SANTOS", nit_entidad := "891200248"]
+indicadores_prueba[Hospital == "ESE HOSPITAL DE EL TAMBO", nit_entidad := "891501104"]
+indicadores_prueba[Hospital == "ESE HOSPITAL FRANCISCO VALDERRAMA DE TURBO", nit_entidad := "890981137"]
+indicadores_prueba[Hospital == "ESE HOSPITAL JUAN PABLO II DE ARATOCA", nit_entidad := "800193904"]
+indicadores_prueba[Hospital == "ESE HOSPITAL LA ANUNCIACION DE MUTATA", nit_entidad := "890981268"]
+indicadores_prueba[Hospital == "ESE HOSPITAL NUESTRA SEÑORA DE LA CANDELARIA", nit_entidad := "890981719"]
+indicadores_prueba[Hospital == "ESE HOSPITAL NUESTRA SEÑORA SANTA ANA", nit_entidad := "819000626"]
+indicadores_prueba[Hospital == "ESE HOSPITAL REGIONAL DE SAN GIL", nit_entidad := "900066347"]
+indicadores_prueba[Hospital == "ESE HOSPITAL REGIONAL NORTE", nit_entidad := "807008857"]
+indicadores_prueba[Hospital == "ESE HOSPITAL SAN JOSE", nit_entidad := "891901745"]
+indicadores_prueba[Hospital == "ESE HOSPITAL SAN LORENZO DE LIBORINA", nit_entidad := "890982139"]
+#indicadores_prueba[Hospital == "ESE HOSPITAL SAN VICENTE DE PAUL", nit_entidad := ""] # ojo con este
+indicadores_prueba[Hospital == "ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA", nit_entidad := "800123106"]
+indicadores_prueba[Hospital == "ESE JAIME ALVARADO Y CASTILLA", nit_entidad := "834001482"]
+indicadores_prueba[Hospital == "ESE PUESTO DE SALUD DE CIENEGA", nit_entidad := "820002468"]
+indicadores_prueba[Hospital == "ESE SAN ISIDRO", nit_entidad := "804005695"]
+indicadores_prueba[Hospital == "HOSPITAL DE SAN MARCOS DE CHINCHINA", nit_entidad := "890802036"]
+indicadores_prueba[Hospital == "HOSPITAL SAN ANTONIO DE ARBELAEZ", nit_entidad := "890680031"]
+indicadores_prueba[Hospital == "HOSPITAL SAN CRISTOBAL DE CIENAGA", nit_entidad := "800130625"]
+indicadores_prueba[Hospital == "HOSPITAL SAN FELIX DE LA DORADA", nit_entidad := "810000913"]
+indicadores_prueba[Hospital == "HOSPITAL SAN JOSE DE GUACHETA", nit_entidad := "800204497"]
+indicadores_prueba[Hospital == "HOSPITAL SAN JUAN DE DIOS DE RIONEGRO", nit_entidad := "890907254"]
+indicadores_prueba[Hospital == "HOSPITAL SANTANDER DE CAICEDONIA", nit_entidad := "891900356"]
+indicadores_prueba[Hospital == "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS", nit_entidad := "809001086"]
+indicadores_prueba[Hospital == "IPS CENTRO DE SALUD DE ENCINO", nit_entidad := "804015007"]
+
+```
+
+
+
+
+Para cambiar en supersalud (primeros)
+```{r}
+
+DT[UID == "17-12-6670053-6063825", valor_inicial:=1568000]
+
+Supersalud --- indicadres
+812004010 ESE CAMU BUENAVISTA --- No registra , ESE CAMU DE BUENAVISTA
+891200248 ESE HOSPITAL CLARITA SANTOS DE SANDONA --- No registra, ESE HOSPITAL CLARITA SANTOS
+800193904 ESE HOSPITAL JUAN PABLO II ARATOCA --- 832193904, ESE HOSPITAL JUAN PABLO II DE ARATOCA
+890981268 ESE HOSPITAL LA ANUNCIACION --- No registra, ESE HOSPITAL LA ANUNCIACION DE MUTATA
+900066347 ESE HOSPITAL REGIONAL SAN GIL --- No registra, ESE HOSPITAL REGIONAL DE SAN GIL
+800123106 ESE HOSPITAL VENANCIO DIAZ DIAZ --- No registra,ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA
+834001482 EMPRESA SOCIAL DEL ESTADO JAIME ALVARADO Y CASTILLA --- ESE JAIME ALVARADO Y CASTILLA
+820002468 EMPRESA SOCIAL DEL ESTADO PUESTO DE SALUD DE CIENEGA --- No registra, ESE PUESTO DE SALUD DE CIENEGA
+900147959 EMPRESA SOCIAL DEL ESTADO CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS --- No registra, ESE CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS DE UNE
+891501104 EMPRESA SOCIAL DEL ESTADO HOSPITAL DE EL TAMBO CAUCA --- 981501104, ESE HOSPITAL DE EL TAMBO
+890981137 EMPRESA SOCIAL DEL ESTADO HOSPITAL FRANCISCO VALDERRAMA --- No registra, ESE HOSPITAL FRANCISCO VALDERRAMA DE TURBO
+890982139 EMPRESA SOCIAL DEL ESTADO HOSPITAL SAN LORENZO --- No registra, ESE HOSPITAL SAN LORENZO DE LIBORINA
+817003532 QUILISALUD ESE --- 817.003.532, ESE QUILISALUD
+804005695 ESE SAN ISIDRO DEL MUNICIPIO DE TONA --- 800400695, ESE SAN ISIDRO 8004MAL
+890802036 ESE HOSPITAL SAN MARCOS --- No registra, HOSPITAL DE SAN MARCOS DE CHINCHINA
+809001086 HOSPITAL SERAFIN MONTAÑA CUELLAR ESE --- No registra, HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS
+800130625 ESE HOSPITAL SAN CRISTOBAL DE CIENAGA --- No registra, HOSPITAL SAN CRISTOBAL DE CIENAGA
+890680031 ESE HOSPITAL SAN ANTONIO DE ARBELAEZ --- No registra, HOSPITAL SAN ANTONIO DE ARBELAEZ
+810000913 ESE HOSPITAL SAN FELIX - LA DORADA --- No registra, HOSPITAL SAN FELIX DE LA DORADA
+800204497 ESE HOSPITAL SAN JOSE DE GUACHETA --- No registra, HOSPITAL SAN JOSE DE GUACHETA
+890907254 HOSPITAL SAN JUAN DE DIOS ESE RIONEGRO - ANTIOQUIA --- No registra, HOSPITAL SAN JUAN DE DIOS DE RIONEGRO
+809001086 HOSPITAL SERAFIN MONTAÑA CUELLAR ESE --- No registra, HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS
+891900356 ESE HOSPITAL SANTANDER --- No registra, HOSPITAL SANTANDER DE CAICEDONIA
+804015007 ESE CENTRO DE SALUD ENCINO --- No registra, IPS CENTRO DE SALUD DE ENCINO
+```
+
+
+Otros indicdores supersalud (Primer semestre de 2015)
+
+```{r}
+supersalud_calidad_20151 <- read_excel("Indicadores_Supersalud_Calidad_IPS_I _SEM _2015.xlsx",
+                                       sheet = "Base_Publicas")
+
+supersalud_calidad_20151 <- as.data.table(supersalud_calidad_20151)
+
+
+supersalud_calidad_20151$...17 <- NULL
+
+names(supersalud_calidad_20151) <- c(
+  "cod_depto",
+  "depto",
+  "cod_municipio",
+  "municipio",
+  "prestadora",
+  "nit_ips",
+  "codigo_habil",
+  "cod_indicador",
+  "indicador",
+  "medida",
+  "numerador",
+  "denominador",
+  "valor",
+  "validacion",
+  "anio",
+  "periodo"
+)
+
+head(supersalud_calidad_20151)
+```
+
+
+```{r}
+#cuántas de las entidades que hay en supersalud 2015 también están en indicadores_BD
+
+# por nit
+supersalud_calidad_20151 %>%
+  filter(nit_ips %in% indicadores_BD$nit_entidad) %>% count(nit_ips)
+
+# por nombre
+supersalud_calidad_20151 %>%
+  filter(prestadora %in% indicadores_BD$nombre_entidad) %>% count(prestadora)
+
+# LOS QUE NO COINCIDEN por nit
+no_nit_supers2015 <- supersalud_calidad_20151 %>%
+  filter(!(nit_ips %in% indicadores_BD$nit_entidad)) %>% 
+  group_by(prestadora) %>% 
+  select(depto, municipio, prestadora, nit_ips) %>% 
+  unique() %>% 
+  arrange(prestadora)
+
+no_nit_indicadores_bd <- indicadores_BD %>% 
+  filter(!(nit_entidad %in% supersalud_calidad_20151$nit_ips)) %>% 
+  select(nombre_entidad, depto_mun, nit_entidad) %>% 
+  arrange(nombre_entidad)
+
+indicadores_BD %>% count(nit_entidad)
+```
+
+Lipieza de supersalud_2015
+
+```{r}
+
+# la columna valor está como tipo character debido a que hay 639 NR y 29 NA
+# reemplazar los NA
+supersalud_calidad_20151$valor[is.na(supersalud_calidad_20151$valor)] <- "0"
+
+# reemplazar los NR
+supersalud_calidad_20151$valor[supersalud_calidad_20151$valor == "NR"] <- "0"
+
+#pasar a numeric la columna valor para poder agrupar por nits después
+supersalud_calidad_20151$valor <- as.numeric(supersalud_calidad_20151$valor)
+
+#eliminar tildes de los indicadores
+supersalud_calidad_20151$indicador <- chartr('áéíóú', 'aeiou', supersalud_calidad_20151$indicador)
+
+#poner los nombres de los indicadores bien
+supersalud_calidad_20151$indicador <- gsub(" ", "_", supersalud_calidad_20151$indicador)
+
+head(supersalud_calidad_20151)
+
+# agrupar y hacer pivot_wider para poder contar los NAs por cada indicador
+supersalud_calidad_20151 <- supersalud_calidad_20151 %>%
+  group_by(nit_ips,
+           prestadora,
+           indicador) %>%
+  summarise(valor_medio = mean(valor)) %>%
+  pivot_wider(names_from = indicador,
+              values_from = valor_medio) 
+#%>% 
+supersalud_calidad_20151 <- supersalud_calidad_20151 %>% dplyr::select(nit_ips,
+                prestadora,
+                Tasa_de_satisfacion_global,
+                Oportunidad_de_la_asignacion_de_citas_en_la_consulta_medica_general,
+                Oportunidad_en_la_atencion_en_consulta_de_odontologia_general,
+                Proporcion_de_pacientes_con_hipertension_arterial_controlada) %>% 
+  rename(
+    "supers_tasa_satis_global" = "Tasa_de_satisfacion_global",
+    "supers_oportun_asign_citas_consulta_general" = "Oportunidad_de_la_asignacion_de_citas_en_la_consulta_medica_general",
+    "supers_oportun_atencion_consulta_odonto_general" = "Oportunidad_en_la_atencion_en_consulta_de_odontologia_general",
+    "supers_perc_pacientes_hipertension" = "Proporcion_de_pacientes_con_hipertension_arterial_controlada"
+  )
+
+# ver los NA por cada columna
+sapply(supersalud_calidad_20151, function(x) sum(is.na(x)))
+
+```
+
+
+Reemplazar en indicadores_bd
+
+```{r}
+indicadores_BD[nombre_entidad =="ANTIOQUIA - HOSPITAL MANUEL URIBE ÁNGEL DE ENVIGADO", nit_entidad := "890906347"]
+indicadores_BD[nombre_entidad =="ANTIOQUIA - E.S.E. HOSPITAL SAN JUAN DE DIOS DE EL PEÑOL", nit_entidad := "890980486"]
+indicadores_BD[nombre_entidad =="ANTIOQUIA - HOSPITAL SAN RAFAEL DE ANDES", nit_entidad := "890980814"]
+indicadores_BD[nombre_entidad == "ANTIOQUIA - E.S.E. HOSPITAL GILBERTO MEJÍA MEJÍA DE RIONEGRO", nit_entidad := "800176899"]
+indicadores_BD[nombre_entidad =="ANTIOQUIA - EMPRESA SOCIAL DEL ESTADO HOSPITAL PRESBÍTERO ALONSO MARÍA GIRALDO - SAN RAFAEL", nit_entidad := "891982128"]
+indicadores_BD[nombre_entidad =="ANTIOQUIA - HOSPITAL SAN ANTONIO DE BETANIA", nit_entidad := "890981494"]
+indicadores_BD[nombre_entidad =="ANTIOQUIA - E.S.E. HOSPITAL SAN CARLOS CAÑASGORDAS", nit_entidad := "890980784"]
+indicadores_BD[nombre_entidad =="ANTIOQUIA - E.S.E. HOSPITAL SAN JUAN DE DIOS DE YARUMAL", nit_entidad := "890981726"]
+indicadores_BD[nombre_entidad =="ANTIOQUIA - E.S.E. HOSPITAL SANTA ISABEL DE SAN PEDRO DE LOS MILAGROS", nit_entidad := "800014405"]
+indicadores_BD[nombre_entidad =="ARAUCA - HOSPITAL SAN VICENTE DE ARAUCA", nit_entidad := "800218979"]
+indicadores_BD[nombre_entidad =="BOLÍVAR - EMPRESA SOCIAL DEL ESTADO CENTRO DE SALUD CON CAMAS - PEÑÓN", nit_entidad := "806011087"]
+indicadores_BD[nombre_entidad =="CALDAS - CENTRO DE SALUD DE NORCASIA", nit_entidad := "810000912"]
+indicadores_BD[nombre_entidad =="CALDAS - HOSPITAL DEPARTAMENTAL SANTA SOFIA DE CALDAS", nit_entidad := "890801099"]
+indicadores_BD[nombre_entidad =="CASANARE - E.S.E. HOSPITAL DE YOPAL", nit_entidad := "891855029"]
+indicadores_BD[nombre_entidad =="HUILA - E.S.E. CENTRO DE SALUD SAN JUAN DE DIOS - EL PITAL", nit_entidad := "813006877"]
+indicadores_BD[nombre_entidad =="NARIÑO - E.S.E. HOSPITAL GUACHUCAL", nit_entidad := "837000286"]
+indicadores_BD[nombre_entidad =="NARIÑO - E.S.E. HOSPITAL SAN ANDRÉS DE TUMACO", nit_entidad := "800179870"]
+indicadores_BD[nombre_entidad =="NARIÑO - E.S.E. HOSPITAL DEPARTAMENTAL DE NARIÑO", nit_entidad := "891200528"]
+indicadores_BD[nombre_entidad =="QUINDÍO - HOSPITAL DEPARTAMENTAL UNIVERSITARIO SAN JUAN DE DIOS DEL QUINDÍO", nit_entidad := "800000118"]
+indicadores_BD[nombre_entidad =="RISARALDA - E.S.E. HOSPITAL SAN VICENTE DE PAÚL - APÍA", nit_entidad := "891409017"]
+indicadores_BD[nombre_entidad =="RISARALDA - E.S.E. HOSPITAL SAN JOSÉ DE BELÉN DE UMBRÍA", nit_entidad := "891408918"]
+indicadores_BD[nombre_entidad =="RISARALDA - HOSPITAL UNIVERSITARIO SAN JORGE DE PEREIRA", nit_entidad := "800231235"]
+indicadores_BD[nombre_entidad =="SANTANDER - E.S.E. HOSPITAL DE MACARAVITA", nit_entidad := "804008207"]
+indicadores_BD[nombre_entidad =="SANTANDER - E.S.E. HOSPITAL SAN ANTONIO DE CERRITO", nit_entidad := "804013228"]
+indicadores_BD[nombre_entidad =="TOLIMA - E.S.E. HOSPITAL SANTO DOMINGO - CASABIANCA", nit_entidad := "800031724"]
+indicadores_BD[nombre_entidad =="TOLIMA - E.S.E. HOSPITAL SAN JUAN BAUTISTA - CHAPARRAL", nit_entidad := "890701459"]
+indicadores_BD[nombre_entidad =="VALLE DEL CAUCA - HOSPITAL SAN RAFAEL DE ZARZAL", nit_entidad := "891900441"]
+indicadores_BD[nombre_entidad =="VALLE DEL CAUCA - E.S.E. HOSPITAL SAGRADA FAMILIA DE TORO", nit_entidad := "891900361"]
+indicadores_BD[nombre_entidad =="VALLE DEL CAUCA - E.S.E. HOSPITAL UNIVERSITARIO DEL VALLE EVARISTO GARCÍA", nit_entidad := "890303461"]
+indicadores_BD[nombre_entidad =="VALLE DEL CAUCA - HOSPITAL MARIO CORREA RENGIFO DE CALI", nit_entidad := "890399047"]
+indicadores_BD[nombre_entidad =="VALLE DEL CAUCA - HOSPITAL SIQUIÁTRICO UNIVERSITARIO SAN ISIDRO", nit_entidad := "890304155"]
+```
+
+
+
+Prueba de unión supersalud_2015 con indicadores_bd
+```{r}
+prueba_bd <- indicadores_BD[, 1:12]
+
+prueba_bd <- merge(x = prueba_bd,
+                   y = supersalud_calidad_20151,
+                   by.x = "nit_entidad",
+                   by.y = "nit_ips",
+                   all.x = TRUE,
+                   all.y = FALSE) %>% 
+  dplyr::select(-prestadora)
+```
+
+union verdadera con indicadoes_bd
+
+```{r}
+indicadores_BD <- merge(x = indicadores_BD,
+                        y = supersalud_calidad_20151,
+                        by.x = "nit_entidad",
+                        by.y = "nit_ips",
+                        all.x = TRUE,
+                        all.y = FALSE) %>% 
+  dplyr::select(-prestadora)
+
+# contra los nas
+sapply(indicadores_BD, function(x) sum(is.na(x)))
+
+# Cambiar los NAs por la media de su columna
+indicadores_BD<-as.data.frame(indicadores_BD)
+columnas_numericas <- which(sapply(indicadores_BD, is.numeric))
+cols_mean <- rep(NA, ncol(indicadores_BD))
+cols_mean[columnas_numericas] <- colMeans(indicadores_BD[, columnas_numericas], na.rm = TRUE)
+
+for (x in columnas_numericas) {
+  indicadores_BD[is.na(indicadores_BD[,x]), x] <- cols_mean[x]
+}
+
+# escribir el .csv
+write.csv(indicadores_BD, file = "indicadores_BD.csv", row.names = TRUE)
+```
+
