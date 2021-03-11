@@ -325,7 +325,7 @@ indicadores_gen$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_
 indicadores_gen <- indicadores_gen %>% 
   mutate_if(is.character, factor)
 
-head(indicadores_gen[,182:184], 10)
+head(indicadores_gen[,182:186], 10)
 ```
 
 División de los datos en train y test
