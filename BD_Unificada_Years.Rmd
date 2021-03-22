@@ -1,0 +1,346 @@
+---
+title: "Union indicadores por anios"
+author: "Yilber Alejandro Erazo Bolaños"
+date: "21/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+librerías
+
+```{r}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(readxl)
+library(stringr)
+```
+
+# Ajustes iniciales
+
+## Indicadores
+
+Lectura de los datos iniciales de los indicadores
+
+```{r}
+indicadores <- read_delim("Indicadores_Final.csv", ";")
+```
+
+Ajustes a la base de dato de indicadores
+
+```{r}
+# Ajustar nombres de algunas entidades territoriales para que coincidad en ambas BDs
+indicadores<-as.data.table(indicadores)
+indicadores[departamento_entidad=="Bogotá D.C." , departamento_entidad:="Bogotá"]
+indicadores[departamento_entidad=="Bogotá" , municipio_entidad:="Bogotá"]
+indicadores[departamento_entidad=="Norte De Santander", departamento_entidad:="Norte de Santander"]
+# Generar una nueva columna con el nombre del departamento-municipio
+indicadores<- unite(indicadores, depto_mun, c("departamento_entidad", "municipio_entidad"), sep = "-", remove = FALSE)
+```
+
+Ajuste manual de registros críticos
+Reemplazar los datos de indicadores como los nombres de economiatd
+cCaso especial: No existe en economíatd Sucre-Sincé , Bolívar-Santa Rosa de Lima
+
+```{r}
+indicadores[depto_mun=="Cauca-Paez/Belalcazar" , municipio_entidad:="Paéz"]
+indicadores[depto_mun=="Boyacá-Chíquiza (San Pedro de Iguaque)" , municipio_entidad:="Chíquiza"]
+indicadores[depto_mun=="Cesar-Manaure Balcon del Cesar" , municipio_entidad:="Manaure"]
+indicadores[depto_mun=="Cauca-López de Micay" , municipio_entidad:="López"]
+indicadores[depto_mun=="Huila-El Pital" , municipio_entidad:="Pital"]
+indicadores[depto_mun=="Antioquia-Carolina del Príncipe" , municipio_entidad:="Carolina"]
+indicadores[depto_mun=="Nariño-Cuaspud/Carlosama" , municipio_entidad:="Cuaspud"]
+indicadores[depto_mun=="Norte de Santander-San José de Cúcuta" , municipio_entidad:="Cúcuta"]
+indicadores[depto_mun=="Tolima-El Espinal" , municipio_entidad:="Espinal"]
+indicadores[depto_mun=="Putumayo-San Miguel (La Dorada)" , municipio_entidad:="San Miguel"]
+indicadores[depto_mun=="Antioquia-El Peñol" , municipio_entidad:="Peñol"]
+indicadores[depto_mun=="Putumayo-San Miguel de Mocoa" , municipio_entidad:="Mocoa"]
+indicadores[depto_mun=="Sucre-Toluviejo" , municipio_entidad:="Tolú Viejo"]
+indicadores[depto_mun=="Boyacá-Gameza" , municipio_entidad:="Gámeza"]
+indicadores[depto_mun=="Bolívar-San Estanislao de Kostka" , municipio_entidad:="San Estanislao"]
+indicadores[depto_mun=="Nariño-Roberto Payán/San José" , municipio_entidad:="Roberto Payán"]
+indicadores[depto_mun=="Putumayo-Valle del Guamuez/La Hormiga" , municipio_entidad:="Valle del Guamuez"]
+indicadores[depto_mun=="Tolima-San Sebastian de Mariquita" , municipio_entidad:="San Sebastián de Mariquita"]
+indicadores[depto_mun=="Cundinamarca-Caqueza" , municipio_entidad:="Cáqueza"]
+indicadores[depto_mun=="Tolima-El Guamo" , municipio_entidad:="Guamo"]
+indicadores[depto_mun=="Tolima-El Líbano" , municipio_entidad:="Líbano"]
+indicadores[depto_mun=="Sucre-Coloso" , municipio_entidad:="Colosó"]
+indicadores[depto_mun=="Cauca-Toribio" , municipio_entidad:="Toribío"]
+indicadores[depto_mun=="Nariño-San Andres de Tumaco" , municipio_entidad:="San Andrés de Tumaco"]
+indicadores[depto_mun=="Antioquia-San Pedro de los Milagros" , municipio_entidad:="San Pedro de Los Milagros"]
+indicadores[depto_mun=="Antioquia-Anza" , municipio_entidad:="Anzá"]
+indicadores[depto_mun=="Nariño-Consaca" , municipio_entidad:="Consacá"]
+indicadores[depto_mun=="Quindío-Calarca" , municipio_entidad:="Calarcá"]
+indicadores[depto_mun=="Antioquia-Yolombo" , municipio_entidad:="Yolombó"]
+indicadores[depto_mun=="Santander-Lebríja" , municipio_entidad:="Lebrija"]
+indicadores[depto_mun=="Cundinamarca-Fomeque" , municipio_entidad:="Fómeque"]
+indicadores[depto_mun=="Valle del Cauca-Jamundi" , municipio_entidad:="Jamundí"]
+indicadores[depto_mun=="Norte de Santander-Abrego" , municipio_entidad:="Ábrego"]
+indicadores[depto_mun=="Atlántico-Campo de la Cruz" , municipio_entidad:="Campo de La Cruz"]
+indicadores[depto_mun=="Antioquia-San Pedro de Uraba" , municipio_entidad:="San Pedro de Urabá"]
+indicadores[depto_mun=="La Guajira-La Jagua Del Pilar" , municipio_entidad:="La Jagua del Pilar"]
+indicadores[depto_mun=="Caquetá-Belén de Los Andaquies" , municipio_entidad:="Belén de Los Andaquíes"]
+indicadores[depto_mun=="Magdalena-Sabanas de San Angel" , municipio_entidad:="Sabanas de San Ángel"]
+indicadores[depto_mun=="Antioquia-San Andrés de Cuerquia" , municipio_entidad:="San Andrés de Cuerquía"]
+indicadores[depto_mun=="Antioquia-San José de la Montaña" , municipio_entidad:="San José de La Montaña"]
+```
+
+Reemplazr la columna con el nombre del departamento-municipio
+
+```{r}
+indicadores$depto_mun<-NULL
+indicadores<- unite(indicadores, depto_mun, c("departamento_entidad", "municipio_entidad"), sep = "-", remove = FALSE)
+```
+
+
+## Economía
+
+Datos iniciales: base de datos completa, tal cual como está en Terridata.
+
+```{r}
+economiatd<- read.csv2("TerriData_Economia", 
+                       header = TRUE, 
+                       encoding="UTF-8", dec = ".")
+```
+
+Ajustes de la base de datos
+
+```{r}
+### Ajustar los nombres de la base de datos de economía
+economiatd<- economiatd %>%
+  rename(cod_departamento = "Código.Departamento", 
+         departamento = "Departamento", 
+         cod_entidad = "Código.Entidad", 
+         entidad = "Entidad", 
+         dimension = "Dimensión", 
+         subcategoria = "Subcategoría", 
+         indicador = "Indicador", 
+         dato_numerico = "Dato.Numérico", 
+         dato_cualitativo = "Dato.Cualitativo", 
+         anno = "Año", 
+         mes = "Mes", 
+         fuente = "Fuente", 
+         unidad_medida = "Unidad.de.Medida")
+### Filtros
+economiatd<- economiatd[!is.na(economiatd$dato_numerico),]
+economiatd<- economiatd %>% filter(anno >=2014)
+economiatd<- economiatd %>% filter(departamento != "Colombia")
+### Generar una nueva columna con el nombre del departamento-municipio
+economiatd<- unite(economiatd, depto_mun,
+                   c("departamento","entidad"),
+                   sep = "-",
+                   remove = FALSE)
+```
+
+# Unión Terridata
+
+Se seleccionaron 4 categorías de indicadores dentro de la plataforma Terridata, esto debido a que según algunos estudios dichas categorías de indicadores puede tener relación con el fenómeno de la corrupción. Las categorías son:
+- Economía
+- Educación
+- Financiero
+- Salud
+
+## Economía
+
+Se seleccionaron los indicadores de 2 subcategorías de las cuáles se tenían suficientes datos (PIB y ) y el Porcentaje del PIB por grandes ramas de actividad económica) y se cree que pueden tener una relación con el tema de estudio, esto de acuerdo a algunas investigaciones hechas por pares y publicadas en algunos artículos como: [Lista de artículos]
+
+### Extraer datos
+
+Por departamentos
+
+```{r}
+# Separar datos por departamentos discriminando por años
+economia_depto <- economiatd %>% 
+  filter( subcategoria == "PIB" | 
+            subcategoria == "Porcentaje del PIB por grandes ramas de actividad económica" &
+            departamento == entidad, 
+          departamento != "Colombia", 
+          departamento!= "Bogotá") %>% 
+  group_by(cod_departamento, departamento, anno,indicador) %>% 
+  dplyr::select(cod_departamento, departamento, anno, indicador, dato_numerico) %>% 
+  unite(indicador_annio, c("indicador", "anno"), sep = "_", remove = TRUE)
+```
+
+Reemplazar los nombres de los indicadores para eliminar espacios, porcentajes, tildes, comas y hacer los nombres más cortos y entendibles, de tal manera que se pueda pasar el nombre del indicador como coluna.
+
+```{r}
+# pasar las mayúsculas a minúsculas
+economia_depto$indicador_annio <- tolower(economia_depto$indicador_annio)
+
+# tildes y espacios
+economia_depto$indicador_annio <- chartr('ÁÉÍÓÚáéíóú ','AEIOUaeiou_', economia_depto$indicador_annio)
+
+# porcetajes (% y "porcentaje)
+economia_depto$indicador_annio <- gsub("%", "perc", economia_depto$indicador_annio)
+economia_depto$indicador_annio <- gsub("porcentaje", "perc", economia_depto$indicador_annio)
+
+# eliminar comas
+economia_depto$indicador_annio <- gsub(",", "", economia_depto$indicador_annio)
+```
+
+Agregar el indicativo del indicador de economía
+
+```{r}
+economia_depto$indicador_annio <- str_c("inec", economia_depto$indicador_annio, sep = "_")
+```
+
+Pasar las filas de indicador a columnas
+
+```{r}
+economia_depto <- economia_depto %>% 
+  pivot_wider(names_from = indicador_annio, values_from = dato_numerico) 
+```
+
+Unir los indicadores por departamentos a los indicadores de SECOP
+
+```{r}
+indicadores_bd_td<- merge(indicadores,
+                       economia_depto,
+                       by.x= "departamento_entidad",
+                       by.y= "departamento",
+                       all.x=TRUE)
+```
+
+Por municipios
+
+De los municipios se seleccionaron solo 7 indicadores debido a que solo estos 7 contenían suficientes datos para los municipios
+
+```{r}
+# Municipios que están en ambas DBs
+economiatdmun <- economiatd %>% filter(economiatd$depto_mun %in% indicadores$depto_mun)
+
+#Separar datos por municipios discriminados por años
+economia_municipio <- economiatdmun %>%
+  filter(   indicador == "Participación del valor agregado municipal en el departamental" |
+              indicador == "Porcentaje del valor agregado por actividades económicas - Actividades primarias" |
+              indicador == "Porcentaje del valor agregado por actividades económicas - Actividades secundarias" |
+              indicador == "Porcentaje del valor agregado por actividades económicas - Actividades terciarias" |
+              indicador == "Valor agregado" |
+              indicador == "Valor agregado per cápita" |
+              indicador == "Valor agregado per cápita como porcentaje del promedio nacional" ) %>% 
+  group_by(depto_mun, cod_entidad, anno, indicador) %>% 
+  dplyr::select(depto_mun, cod_entidad, anno, indicador, dato_numerico) %>% 
+  unite(indicador_annio, c("indicador", "anno"), sep = "_", remove = TRUE)
+```
+
+Reemplazar los nombres de los indicadores para eliminar espacios, porcentajes, tildes, comas y hacer los nombres más cortos y entendibles, de tal manera que se pueda pasar el nombre del indicador como coluna.
+
+```{r}
+# pasar las mayúsculas a minúsculas
+economia_municipio$indicador_annio <- tolower(economia_municipio$indicador_annio)
+
+#guión
+economia_municipio$indicador_annio <- gsub(" - ", " ", economia_municipio$indicador_annio)
+
+# tildes y espacios
+economia_municipio$indicador_annio <- chartr('ÁÉÍÓÚáéíóú ','AEIOUaeiou_', economia_municipio$indicador_annio)
+
+# porcetajes (% y "porcentaje)
+economia_municipio$indicador_annio <- gsub("%", "perc", economia_municipio$indicador_annio)
+economia_municipio$indicador_annio <- gsub("porcentaje", "perc", economia_municipio$indicador_annio)
+
+# eliminar comas
+economia_municipio$indicador_annio <- gsub(",", "", economia_municipio$indicador_annio)
+```
+
+Agregar el indicativo del indicador de economía
+
+```{r}
+economia_municipio$indicador_annio <- str_c("inec", economia_municipio$indicador_annio, sep = "_")
+```
+
+Pasar las filas de indicador a columnas
+
+```{r}
+economia_municipio <- economia_municipio %>% 
+  pivot_wider(names_from = indicador_annio, values_from = dato_numerico) 
+```
+
+Unir las dos bases de datos de economia 
+
+```{r}
+### Unir indicadores_BD general con los indicadores municipio (recordar problema con San Andrés y Bogotá)
+indicadores_bd_td <- merge(indicadores_bd_td,
+                       economia_municipio,
+                       by="depto_mun",
+                       all.x= FALSE,
+                       all.y=TRUE)
+```
+
+### Procesamiento final economía unida
+
+Ordenr el nombre de las columnas
+
+```{r}
+nombres <- c("nombre_entidad", "nit_entidad" , "orden_entidad", 
+             "departamento_entidad", "cod_departamento",
+             "municipio_entidad", "depto_mun","cod_entidad")
+indicadores_BD_O1 <- indicadores_bd_td %>% dplyr::select(!all_of(nombres))
+nombres_BD <- c(nombres, names(indicadores_BD_O1))
+indicadores_bd_td <- indicadores_bd_td %>% dplyr::select(all_of(nombres_BD))
+rm(indicadores_BD_O1)
+rm(nombres_BD)
+```
+
+Cambiar los NAs por la media de su columna
+
+```{r}
+indicadores_bd_td <-as.data.frame(indicadores_bd_td)
+# cuáles columnas son numéricas
+columnas_numericas <- which(sapply(indicadores_bd_td, is.numeric))
+cols_mean <- rep(NA, ncol(indicadores_bd_td))
+cols_mean[columnas_numericas] <- colMeans(indicadores_bd_td[, columnas_numericas], na.rm = TRUE)
+
+# reemplaar los NA
+for (x in columnas_numericas) {
+  indicadores_bd_td[is.na(indicadores_bd_td[,x]), x] <- cols_mean[x]
+}
+```
+
+Contar cuántos valores faltantes hay
+
+```{r}
+sapply(indicadores_bd_td, function(x) sum(is.na(x)))
+```
+
+# Union externos
+
+Aquí se unen añaden algunos indicadores que no se encontraron en Terridata ni en SECOP, sino que, en fuentes externas
+
+## MDM (Medición del Desempeño Municipal)
+
+```{r}
+MDM <- read_excel("Resultados_2018_MDM.xlsx")
+
+### Ajustar nombres
+nombres_mdm <- c("cod_entidad", "depto" , "municipio" , "grupo_cap_iniciales",
+                 "inmdm_gestion_mov_recursos_mun", "inmdm_gestion_ejec_recursos_mun",
+                 "inmdm_gestion_ord_territorial_mun", "inmdm_gobno_abierto_transparencia_mun",
+                 "inmdm_puntaje_gestion_mun", "puesto_gestion_grupo_capacidades",
+                 "inmdm_res_educacion_mun", "inmdm_res_salud_mun", "inmdm_res_servicios_mun",
+                 "inmdm_res_seguridad_mun", "ind_puntaje_res_2017_mun", "ind_ppuntaje_res_2018_mun",
+                 "inmdm_ajuste_por_resultados_mun", "puesto_resultados_grupo_capacidades", 
+                 "inmdm_puntaje_mdm_2018", "puesto_mdm_grupo_capacidades", "inmdm_clasificacion")
+names(MDM) <- nombres_mdm
+MDM$cod_entidad <- as.numeric(MDM$cod_entidad)
+
+### Seleccionar datos
+MDM <- MDM %>% 
+  dplyr::select(cod_entidad, inmdm_gestion_mov_recursos_mun, inmdm_gestion_ejec_recursos_mun,
+                inmdm_gestion_ord_territorial_mun, inmdm_gobno_abierto_transparencia_mun,
+                inmdm_puntaje_gestion_mun,ind_ppuntaje_res_2018_mun, inmdm_puntaje_mdm_2018,
+                inmdm_clasificacion)
+
+### Agregar MDM a la base de datos de los indicadores
+indicadores_bd_td <- merge(indicadores_bd_td,
+                           MDM,
+                           by = "cod_entidad",
+                           all.x = TRUE,
+                           all.y = FALSE)
+```
+
+
+
