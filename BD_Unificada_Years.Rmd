@@ -319,11 +319,12 @@ MDM <- read_excel("Resultados_2018_MDM.xlsx")
 nombres_mdm <- c("cod_entidad", "depto" , "municipio" , "grupo_cap_iniciales",
                  "inmdm_gestion_mov_recursos_mun", "inmdm_gestion_ejec_recursos_mun",
                  "inmdm_gestion_ord_territorial_mun", "inmdm_gobno_abierto_transparencia_mun",
-                 "inmdm_puntaje_gestion_mun", "puesto_gestion_grupo_capacidades",
+                 "inmdm_puntaje_gestion_mun", "inmdm_puesto_gestion_grupo_capacidades",
                  "inmdm_res_educacion_mun", "inmdm_res_salud_mun", "inmdm_res_servicios_mun",
-                 "inmdm_res_seguridad_mun", "ind_puntaje_res_2017_mun", "ind_ppuntaje_res_2018_mun",
-                 "inmdm_ajuste_por_resultados_mun", "puesto_resultados_grupo_capacidades", 
-                 "inmdm_puntaje_mdm_2018", "puesto_mdm_grupo_capacidades", "inmdm_clasificacion")
+                 "inmdm_res_seguridad_mun", "inmdm_ind_puntaje_res_2017_mun",
+                 "inmdm_ind_ppuntaje_res_2018_mun", "inmdm_ajuste_por_resultados_mun",
+                 "inmdm_puesto_resultados_grupo_capacidades", "inmdm_puntaje_mdm_2018",
+                 "inmdm_puesto_mdm_grupo_capacidades", "inmdm_clasificacion")
 names(MDM) <- nombres_mdm
 MDM$cod_entidad <- as.numeric(MDM$cod_entidad)
 
@@ -331,7 +332,7 @@ MDM$cod_entidad <- as.numeric(MDM$cod_entidad)
 MDM <- MDM %>% 
   dplyr::select(cod_entidad, inmdm_gestion_mov_recursos_mun, inmdm_gestion_ejec_recursos_mun,
                 inmdm_gestion_ord_territorial_mun, inmdm_gobno_abierto_transparencia_mun,
-                inmdm_puntaje_gestion_mun,ind_ppuntaje_res_2018_mun, inmdm_puntaje_mdm_2018,
+                inmdm_puntaje_gestion_mun,inmdm_ind_ppuntaje_res_2018_mun, inmdm_puntaje_mdm_2018,
                 inmdm_clasificacion)
 
 ### Agregar MDM a la base de datos de los indicadores
@@ -342,5 +343,11 @@ indicadores_bd_td <- merge(indicadores_bd_td,
                            all.y = FALSE)
 ```
 
+cambiar nombre de indidacor de corrupción
+
+```{r}
+indicadores_bd_td <- indicadores_bd_td %>% 
+  rename("indba_riesgo_corrupcion" = "ind_riesgo_corrupcion")
+```
 
 

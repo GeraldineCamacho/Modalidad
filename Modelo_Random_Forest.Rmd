@@ -279,8 +279,9 @@ cor.test(predicciones$perc_contr_directa_num, predicciones$.pred)
 
 Lectura de los datos
 ```{r}
-indicadores_clas <- read.csv("indicadores_BD.csv")
+#indicadores_clas <- read.csv("indicadores_BD.csv")
 
+indicadores_clas <- indicadores_bd_td
 head(indicadores_clas)
 ```
 
@@ -368,12 +369,12 @@ Eliminar el porcentaje de contratacion directa
 ```{r}
 indicadores_clas$indba_perc_cdirec_num <- NULL
 
-indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info)] <- "NO REGISTRA"
+#indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info)] <- "NO REGISTRA"
 
 indicadores_clas <- indicadores_clas %>% 
   mutate_if(is.character, factor)
 
-head(indicadores_clas[,182:184], 10)
+#head(indicadores_clas[,182:184], 10)
 
 #indicadores_clas <- indicadores_clas[,c(1:18, 184)]
 ```
