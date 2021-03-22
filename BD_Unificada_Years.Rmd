@@ -350,4 +350,9 @@ indicadores_bd_td <- indicadores_bd_td %>%
   rename("indba_riesgo_corrupcion" = "ind_riesgo_corrupcion")
 ```
 
+escribir base de datos
+
+```{r}
+write.csv(indicadores_bd_td, file = "indicadores_bd_td.csv", row.names = TRUE)
+```
 
