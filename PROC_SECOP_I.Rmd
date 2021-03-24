@@ -192,6 +192,24 @@ Con este filtro se retiran `r dim(fecha_mal)[1]` contratos que suman un valor to
 SECOP_I <- SECOP_I %>% filter(!(anno_cargue > anno_firma))
 ```
 
+sacar una columna para los departamentos de ejecución
+
+```{r}
+SECOP_I <- unite(SECOP_I,
+                 depto_mun, 
+                 c("departamento_entidad", "municipio_entidad"),
+                 sep = " - ",
+                 remove = FALSE)
+```
+
+crear la base de datos de secop directa
+
+```{r}
+secop_directa <- SECOP_I %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)")
+```
+
+
 Escribir la base de datos
 
 ```{r}
@@ -245,13 +263,16 @@ NO CORRER
   SECOP_I$departamento_ejecucion <- depto_entidad
 }
 ## NO CORRER
+head(SECOP_I)
 ```
 
 ## Ordenar por valor de contrato y analizar si puede existir alguno erroneo
 
 ```{r}
-SECOP_I %>%  summarise(Valordeadicones= sum(valor_adiciones))
+datatable(SECOP_I %>% count(tipo_proceso) %>% arrange(desc(n)))
+SECOP_I %>%  summarise(Valordeadicones= sum(valor_adiciones)) 
 SECOP_I %>%  summarise(ValorContratos= sum(valor_total_con_adiciones))
+SECOP_I %>% count(regimen_contratacion)
 ```
 
 Superan en billon de pesos (2)
@@ -540,7 +561,7 @@ secop_directa <- SECOP_I %>%
  
 
 ## no corrido aún
-ResumenGDirecta<- secop_directa %>% 
+#ResumenGDirecta<- secop_directa %>% 
   group_by(nombre_entidad) %>%
   summarise(Contratos = n(),
             Plazo = mean(plazo_ejec_dias),
@@ -555,6 +576,13 @@ ResumenGDirecta<- secop_directa %>%
 
 ### Departamentos 
 ```{r}
+  # Con este parte del codigo extraigo el departamento de ejecución
+depto_entidad <- str_sub(string = SECOP_I$municipio_ejecucion, 
+               start = 1L, 
+               end = str_locate(string = SECOP_I$municipio_ejecucion, pattern = "-")[,1]-2)
+
+SECOP_I$departamento_ejecucion <- depto_entidad
+
 #departamentos
 total_contratos <- SECOP_I %>% 
   group_by(departamento_ejecucion) %>% 

@@ -446,3 +446,497 @@ for (x in columnas_numericas) {
 write.csv(indicadores_BD, file = "indicadores_BD.csv", row.names = TRUE)
 ```
 
+
+# Prueba cercanos a mínima cuantía y final de año
+
+
+```{r}
+head(SECOP_I)
+```
+
+
+```{r}
+SECOP_I %>% count(regimen_contratacion)
+datatable(SECOP_I %>% count(tipo_contrato, tipo_proceso) %>% arrange(desc(n)))
+```
+
+
+```{r}
+datatable(SECOP_I %>% count(regimen_contratacion, tipo_proceso))
+#consultas iniciales sobre secop_i
+
+datatable(SECOP_I %>% count(causa_otras_formas_contr_directa) %>% arrange(desc(n)))
+
+#ver cuántoss minima cuantía hay
+datatable(SECOP_I %>% count(tipo_proceso) %>% arrange(desc(n)))
+
+#ver calcular mínima cuantía para cada nivel, hospital, municipio y depto
+
+#correlación entre minima cuantía y contratación directaa
+
+# calculo de la cantidad y propoción de contratos cercanos a fin de año
+# calculo de la cantidad y proporción de contratos en las fechas de ley de garantías
+```
+
+## ver calcular mínima cuantía para cada nivel, hospital, municipio y depto
+
+Crear columna de deptos
+
+```{r}
+  # Con este parte del codigo extraigo el departamento de ejecución
+depto_entidad <- str_sub(string = SECOP_I$municipio_ejecucion, 
+               start = 1L, 
+               end = str_locate(string = SECOP_I$municipio_ejecucion, pattern = "-")[,1]-2)
+
+SECOP_I$departamento_ejecucion <- depto_entidad
+```
+
+hacer la tabla, los datos
+
+## Departamentos
+
+```{r}
+#departamentos
+total_contratos <- SECOP_I %>% 
+  group_by(departamento_ejecucion) %>% 
+  summarise(contratos = n(),
+            valor_contratos = sum(valor_total_con_adiciones),
+            adiciones = sum(valor_adiciones)) 
+
+total_contratos_directos <- secop_directa %>%
+  group_by(departamento_ejecucion) %>% 
+  summarise(contratos_directos = n(),
+            adiciones_directa = sum(valor_adiciones))
+
+deptos <- merge(total_contratos,
+                total_contratos_directos,
+                by = "departamento_ejecucion",
+                all.y = TRUE) %>% 
+  mutate(prop_directa = as.numeric(sprintf("%.2f", 
+                                (contratos_directos / contratos)*100)))
+
+## ADICIONES
+contratos_adiciones <- SECOP_I %>% 
+  filter(valor_adiciones > 0) %>% 
+  count(departamento_ejecucion) %>% 
+  rename("contratos_adiciones" = n)
+
+contratos_adiciones_directa <- secop_directa %>% 
+  filter(valor_adiciones > 0) %>%
+  count(departamento_ejecucion) %>% 
+  rename("contratos_adiciones_dir" = n)
+
+deptos_adiciones <- merge(contratos_adiciones,
+                          contratos_adiciones_directa,
+                          all.x = TRUE) %>% 
+  mutate(prop_cont_dir_adic = as.numeric(sprintf("%.2f",
+                                                (contratos_adiciones_dir / contratos_adiciones)*100)))
+
+# Función de cambio de los NA por ceros
+cambio_na = function(x){
+  ifelse(is.na(x),0,x)
+}
+
+# Cambiar nos NA por ceros
+deptos_adiciones <- data.frame( sapply(deptos_adiciones, cambio_na) )
+
+# convertir a  numércias las columnas 
+#deptos[, 2:ncol(deptos)] <- as.numeric(deptos[, 2:ncol(deptos)])
+#deptos_adiciones$contratos_adiciones <- as.numeric(deptos_adiciones$contratos_adiciones)
+#deptos_adiciones$contratos_adiciones_dir <- as.numeric(deptos_adiciones$contratos_adiciones_dir)
+#deptos_adiciones$prop_cont_dir_adic <- as.numeric(deptos_adiciones$prop_cont_dir_adic)
+
+# agregar las adiciones a la tabla de informacion departamental
+deptos <- merge(deptos,
+                deptos_adiciones,
+                by = "departamento_ejecucion",
+                all.x = TRUE)
+
+## MÍNIMA CUANTÍA
+minima_cuantia <- SECOP_I %>% 
+  filter(tipo_proceso == "Contratación Mínima Cuantía") %>% 
+  group_by(departamento_ejecucion) %>% 
+  summarise(contratos_minima_cuantia = n(),
+            valor_contratos_minima_cuantia = sum(valor_total_con_adiciones),
+            adiciones_minima_cuantia = sum(valor_adiciones))
+
+# Cambiar nos NA por ceros
+deptos <- data.frame( sapply(deptos, cambio_na) )
+
+# agregar la mínima cuantía a la info departamental
+deptos <-merge(deptos,
+               minima_cuantia,
+               by = "departamento_ejecucion",
+               all.x = TRUE)
+
+# Cambiar nos NA por ceros
+deptos <- data.frame( sapply(deptos, cambio_na) )
+
+# pasar a numérico las variables que están como char
+deptos[, 2:ncol(deptos)] <- setNames(data.frame(lapply(deptos[, 2:ncol(deptos)], as.numeric)), 
+                        colnames(deptos[, 2:ncol(deptos_adiciones)]))
+
+sum(sapply(deptos, is.numeric))
+
+# calcular porcentajes de mínima cuantía
+deptos <- deptos %>% 
+    mutate(prop_contr_minima_cuantia = as.numeric(sprintf("%.2f",
+                                                (contratos_minima_cuantia / contratos)*100)),
+           prop_val_minima_cuantia = as.numeric(sprintf("%.2f",
+                                                (valor_contratos_minima_cuantia / valor_contratos)*100)),
+           prop_dir_adic = as.numeric(sprintf("%.2f", 
+                                           (adiciones_directa / adiciones)*100)))
+
+# Cambiar nos NA por ceros
+deptos <- data.frame( sapply(deptos, cambio_na) )
+
+# pasar a numérico las variables que están como char
+deptos[, 2:ncol(deptos)] <- setNames(data.frame(lapply(deptos[, 2:ncol(deptos)], as.numeric)), 
+                        colnames(deptos[, 2:ncol(deptos_adiciones)]))
+
+sum(sapply(deptos, is.numeric))
+
+# crear el vector que determina el orden en que quiero ver las variables
+orden_depto <- c("departamento_ejecucion",
+                 "contratos",
+                 "contratos_directos",
+                 "prop_directa",
+                 "contratos_adiciones",
+                 "contratos_adiciones_dir",
+                 "prop_cont_dir_adic",
+                 "contratos_minima_cuantia",
+                 "prop_contr_minima_cuantia",
+                 "valor_contratos",
+                 "adiciones",
+                 "adiciones_directa",
+                 "prop_dir_adic",
+                 "valor_contratos_minima_cuantia",
+                 "adiciones_minima_cuantia",
+                 "prop_val_minima_cuantia")
+
+# ordenar la tabla de acuerdo a como se quiere
+deptos <- deptos %>% 
+              dplyr::select(all_of(orden_depto))
+
+# eliminar registro de San Andrés, providencia y santa catalina
+deptos <- deptos[deptos$departamento_ejecucion != "San Andrés, Providencia y Santa Catalina", ]
+
+# LISTO ESTO POR DEPARTAMENTOS
+```
+
+## Municipios
+
+LLave
+
+```{r}
+# generar llave
+SECOP_I <- unite(SECOP_I,
+                 depto_mun, 
+                 c("departamento_entidad", "municipio_entidad"),
+                 sep = " - ",
+                 remove = FALSE)
+```
+
+datos
+
+```{r}
+total_contratos <- SECOP_I %>% 
+  group_by(depto_mun) %>% 
+  summarise(contratos = n(),
+            valor_contratos = sum(valor_total_con_adiciones),
+            adiciones = sum(valor_adiciones)) 
+
+total_contratos_directos <- secop_directa %>%
+  group_by(depto_mun) %>% 
+  summarise(contratos_directos = n(),
+            adiciones_directa = sum(valor_adiciones))
+
+municipios <- merge(total_contratos,
+                total_contratos_directos,
+                by = "depto_mun",
+                all.y = TRUE) %>% 
+  mutate(prop_directa = as.numeric(sprintf("%.2f", 
+                                (contratos_directos / contratos)*100)))
+
+## ADICIONES
+contratos_adiciones <- SECOP_I %>% 
+  filter(valor_adiciones > 0) %>% 
+  count(depto_mun) %>% 
+  rename("contratos_adiciones" = n)
+
+contratos_adiciones_directa <- secop_directa %>% 
+  filter(valor_adiciones > 0) %>%
+  count(depto_mun) %>% 
+  rename("contratos_adiciones_dir" = n)
+
+municipios_adiciones <- merge(contratos_adiciones,
+                          contratos_adiciones_directa,
+                          all.x = TRUE) %>% 
+  mutate(prop_cont_dir_adic = as.numeric(sprintf("%.2f",
+                                                (contratos_adiciones_dir / contratos_adiciones)*100)))
+
+# Función de cambio de los NA por ceros
+cambio_na = function(x){
+  ifelse(is.na(x),0,x)
+}
+
+# Cambiar nos NA por ceros
+municipios_adiciones <- data.frame( sapply(municipios_adiciones, cambio_na) )
+
+# convertir a  numércias las columnas 
+#deptos[, 2:ncol(deptos)] <- as.numeric(deptos[, 2:ncol(deptos)])
+#deptos_adiciones$contratos_adiciones <- as.numeric(deptos_adiciones$contratos_adiciones)
+#deptos_adiciones$contratos_adiciones_dir <- as.numeric(deptos_adiciones$contratos_adiciones_dir)
+#deptos_adiciones$prop_cont_dir_adic <- as.numeric(deptos_adiciones$prop_cont_dir_adic)
+
+# agregar las adiciones a la tabla de informacion departamental
+municipios <- merge(municipios,
+                municipios_adiciones,
+                by = "depto_mun",
+                all.x = TRUE)
+
+## MÍNIMA CUANTÍA
+minima_cuantia <- SECOP_I %>% 
+  filter(tipo_proceso == "Contratación Mínima Cuantía") %>% 
+  group_by(depto_mun) %>% 
+  summarise(contratos_minima_cuantia = n(),
+            valor_contratos_minima_cuantia = sum(valor_total_con_adiciones),
+            adiciones_minima_cuantia = sum(valor_adiciones))
+
+# Cambiar nos NA por ceros
+municipios <- data.frame( sapply(municipios, cambio_na) )
+
+# agregar la mínima cuantía a la info departamental
+municipios <-merge(municipios,
+               minima_cuantia,
+               by = "depto_mun",
+               all.x = TRUE)
+
+# Cambiar nos NA por ceros
+municipios <- data.frame( sapply(municipios, cambio_na) )
+
+# pasar a numérico las variables que están como char
+municipios[, 2:ncol(municipios)] <- setNames(data.frame(lapply(municipios[, 2:ncol(municipios)], as.numeric)), 
+                        colnames(municipios[, 2:ncol(municipios_adiciones)]))
+
+sum(sapply(municipios, is.numeric))
+
+# calcular porcentajes de mínima cuantía
+municipios <- municipios %>% 
+    mutate(prop_contr_minima_cuantia = as.numeric(sprintf("%.2f",
+                                                (contratos_minima_cuantia / contratos)*100)),
+           prop_val_minima_cuantia = as.numeric(sprintf("%.2f",
+                                                (valor_contratos_minima_cuantia / valor_contratos)*100)),
+           prop_dir_adic = as.numeric(sprintf("%.2f", 
+                                           (adiciones_directa / adiciones)*100)))
+
+# Cambiar nos NA por ceros
+municipios <- data.frame( sapply(municipios, cambio_na) )
+
+# pasar a numérico las variables que están como char
+municipios[, 2:ncol(municipios)] <- setNames(data.frame(lapply(municipios[, 2:ncol(municipios)], as.numeric)), 
+                        colnames(municipios[, 2:ncol(municipios_adiciones)]))
+
+sum(sapply(deptos, is.numeric))
+
+# crear el vector que determina el orden en que quiero ver las variables
+  orden_mun <- c("depto_mun",
+                 "contratos",
+                 "contratos_directos",
+                 "prop_directa",
+                 "contratos_adiciones",
+                 "contratos_adiciones_dir",
+                 "prop_cont_dir_adic",
+                 "contratos_minima_cuantia",
+                 "prop_contr_minima_cuantia",
+                 "valor_contratos",
+                 "adiciones",
+                 "adiciones_directa",
+                 "prop_dir_adic",
+                 "valor_contratos_minima_cuantia",
+                 "adiciones_minima_cuantia",
+                 "prop_val_minima_cuantia")
+
+# ordenar la tabla de acuerdo a como se quiere
+municipios <- municipios %>% 
+              dplyr::select(all_of(orden_mun))
+
+# LISTO ESTO POR MUNICIPIOS
+```
+
+## Entidades hospitales
+
+```{r}
+total_contratos <- SECOP_I %>% 
+  group_by(nombre_entidad, depto_mun, departamento_entidad) %>% 
+  summarise(contratos = n(),
+            valor_contratos = sum(valor_total_con_adiciones),
+            adiciones = sum(valor_adiciones)) 
+
+total_contratos_directos <- secop_directa %>%
+  group_by(nombre_entidad) %>% 
+  summarise(contratos_directos = n(),
+            adiciones_directa = sum(valor_adiciones))
+
+hospitales <- merge(total_contratos,
+                total_contratos_directos,
+                by = "nombre_entidad",
+                all.y = TRUE) %>% 
+  mutate(prop_directa = as.numeric(sprintf("%.2f", 
+                                (contratos_directos / contratos)*100)))
+
+## ADICIONES
+contratos_adiciones <- SECOP_I %>% 
+  filter(valor_adiciones > 0) %>% 
+  count(nombre_entidad) %>% 
+  rename("contratos_adiciones" = n)
+
+contratos_adiciones_directa <- secop_directa %>% 
+  filter(valor_adiciones > 0) %>%
+  count(nombre_entidad) %>% 
+  rename("contratos_adiciones_dir" = n)
+
+hospitales_adiciones <- merge(contratos_adiciones,
+                          contratos_adiciones_directa,
+                          by = "nombre_entidad",
+                          all.x = TRUE) %>% 
+  mutate(prop_cont_dir_adic = as.numeric(sprintf("%.2f",
+                                                (contratos_adiciones_dir / contratos_adiciones)*100)))
+
+# Función de cambio de los NA por ceros
+cambio_na = function(x){
+  ifelse(is.na(x),0,x)
+}
+
+# Cambiar nos NA por ceros
+hospitales_adiciones <- data.frame( sapply(hospitales_adiciones, cambio_na) )
+
+# convertir a  numércias las columnas 
+#deptos[, 2:ncol(deptos)] <- as.numeric(deptos[, 2:ncol(deptos)])
+#deptos_adiciones$contratos_adiciones <- as.numeric(deptos_adiciones$contratos_adiciones)
+#deptos_adiciones$contratos_adiciones_dir <- as.numeric(deptos_adiciones$contratos_adiciones_dir)
+#deptos_adiciones$prop_cont_dir_adic <- as.numeric(deptos_adiciones$prop_cont_dir_adic)
+
+# agregar las adiciones a la tabla de informacion departamental
+hospitales <- merge(hospitales,
+                hospitales_adiciones,
+                by = "nombre_entidad",
+                all.x = TRUE)
+
+## MÍNIMA CUANTÍA
+minima_cuantia <- SECOP_I %>% 
+  filter(tipo_proceso == "Contratación Mínima Cuantía") %>% 
+  group_by(nombre_entidad) %>% 
+  summarise(contratos_minima_cuantia = n(),
+            valor_contratos_minima_cuantia = sum(valor_total_con_adiciones),
+            adiciones_minima_cuantia = sum(valor_adiciones))
+
+# Cambiar nos NA por ceros
+hospitales <- data.frame( sapply(hospitales, cambio_na) )
+
+# agregar la mínima cuantía a la info departamental
+hospitales <-merge(hospitales,
+               minima_cuantia,
+               by = "nombre_entidad",
+               all.x = TRUE)
+
+# Cambiar nos NA por ceros
+hospitales <- data.frame( sapply(hospitales, cambio_na) )
+
+# pasar a numérico las variables que están como char
+hospitales[, 4:ncol(hospitales)] <- setNames(data.frame(lapply(hospitales[, 4:ncol(hospitales)], as.numeric)), 
+                        colnames(hospitales[, 4:ncol(hospitales_adiciones)]))
+
+sum(sapply(hospitales, is.numeric))
+
+# calcular porcentajes de mínima cuantía
+hospitales <- hospitales %>% 
+    mutate(prop_contr_minima_cuantia = as.numeric(sprintf("%.2f",
+                                                (contratos_minima_cuantia / contratos)*100)),
+           prop_val_minima_cuantia = as.numeric(sprintf("%.2f",
+                                                (valor_contratos_minima_cuantia / valor_contratos)*100)),
+           prop_dir_adic = as.numeric(sprintf("%.2f", 
+                                           (adiciones_directa / adiciones)*100)))
+
+# Cambiar nos NA por ceros
+hospitales <- data.frame( sapply(hospitales, cambio_na) )
+
+# pasar a numérico las variables que están como char
+hospitales[, 4:ncol(hospitales)] <- setNames(data.frame(lapply(hospitales[, 4:ncol(hospitales)], as.numeric)), 
+                        colnames(hospitales[, 4:ncol(hospitales_adiciones)]))
+
+sum(sapply(deptos, is.numeric))
+
+# crear el vector que determina el orden en que quiero ver las variables
+  orden_hos <- c("nombre_entidad",
+                 "departamento_entidad",
+                 "depto_mun",
+                 "contratos",
+                 "contratos_directos",
+                 "prop_directa",
+                 "contratos_adiciones",
+                 "contratos_adiciones_dir",
+                 "prop_cont_dir_adic",
+                 "contratos_minima_cuantia",
+                 "prop_contr_minima_cuantia",
+                 "valor_contratos",
+                 "adiciones",
+                 "adiciones_directa",
+                 "prop_dir_adic",
+                 "valor_contratos_minima_cuantia",
+                 "adiciones_minima_cuantia",
+                 "prop_val_minima_cuantia")
+
+# ordenar la tabla de acuerdo a como se quiere
+hospitales <- hospitales %>% 
+              dplyr::select(all_of(orden_hos))
+
+# LISTO ESTO POR HOSPITALES
+```
+
+
+### Unir los indicadores por departamentos y municipios a los hospitales (entidades)
+
+```{r}
+#modificar nombres de columnas de cada taba
+#depto
+orden_depto<- paste(orden_depto, "depto", sep = "_")
+names(deptos) <- orden_depto
+
+#municipios
+orden_mun <- paste(orden_mun, "mun", sep = "_")
+names(municipios) <- orden_mun
+
+#hospitales
+orden_hos <- paste(orden_hos, "hos", sep = "_")
+names(hospitales) <- orden_hos
+
+# unir los municipios a los hospitales
+entidades <- merge(hospitales, municipios, 
+                   by.x = "depto_mun_hos",
+                   by.y = "depto_mun_mun",
+                   all.x = TRUE)
+
+# unir los departamentos a los hospitales
+entidades <- merge(entidades, deptos,
+                   by.x = "departamento_entidad_hos",
+                   by.y = "departamento_ejecucion_depto",
+                   all.x = TRUE)
+
+#entidades$departamento_entidad_hos <- NULL
+
+#ver si hay NAs
+sapply(supersalud_calidad_20151, function(x) sum(is.na(x)))
+
+# Escribir el .csv
+write.csv(entidades, file = "entidades.csv", row.names = TRUE)
+```
+
+# Intentar merge de entidades (hospitales) con indicadores_bd_td
+
+```{r}
+# filtrar las columnas deseadas de las entidades
+# hacer el merge por nombre de entidad
+# correr el random forest
+```
+
