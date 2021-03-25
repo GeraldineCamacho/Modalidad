@@ -1153,3 +1153,15 @@ indicadores_bd_td_v2 <- read_delim(file = "indicadores_bd_td_v2.csv", delim = ",
 view(indicadores_bd_td_v2)
 ```
 
+Teniendo la cantidad de contratos a fin de año se puede calcular la proporción que los contratos a fin de año representan en la totalidad del año
+
+```{r}
+indicadores_bd_td %>% mutate(
+  indba_prop_contr_finyr_dto_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100) %>% dplyr::select(nombre_entidad, indba_prop_contr_finyr_dto_total_hos) %>% arrange(desc(indba_prop_contr_finyr_dto_total_hos))
+
+
+# en la base de datos
+indicadores_bd_td <- indicadores_bd_td %>% mutate(
+  indba_prop_contr_finyr_dto_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100)
+```
+
