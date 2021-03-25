@@ -1146,4 +1146,10 @@ head(indicadores_bd_td)
 write.csv(indicadores_bd_td, file = "indicadores_bd_td_v2.csv", row.names = TRUE)
 ```
 
+## Leer de nuevo los datos porque lo borré sin querer
+
+```{r}
+indicadores_bd_td_v2 <- read_delim(file = "indicadores_bd_td_v2.csv", delim = ",")
+view(indicadores_bd_td_v2)
+```
 

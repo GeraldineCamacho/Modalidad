@@ -369,6 +369,12 @@ Eliminar el porcentaje de contratacion directa
 ```{r}
 indicadores_clas$indba_perc_cdirec_num <- NULL
 
+indicadores_clas$indba_contr_finyr_directa_dto <- NULL
+indicadores_clas$indba_contr_finyr_directa_hos <- NULL
+#indicadores_clas$indba_contr_finyr_hos <- NULL
+indicadores_clas$indba_prop_contr_finyr_hos <- NULL
+indicadores_clas$indba_prop_contr_finyr_dto <- NULL
+
 #indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info)] <- "NO REGISTRA"
 
 indicadores_clas <- indicadores_clas %>% 
