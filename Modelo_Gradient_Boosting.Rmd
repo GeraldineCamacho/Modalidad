@@ -237,7 +237,9 @@ xgb.plot.importance(importance_matrix = importance_matrix)
 
 Lectura de los datos
 ```{r}
-indicadores_gen <- read.csv("indicadores_BD.csv")
+#indicadores_gen <- read.csv("indicadores_BD.csv")
+indicadores_gen <- indicadores_bd_td
+head(indicadores_gen)
 
 head(indicadores_gen)
 ```
@@ -262,10 +264,16 @@ indicadores_gen$nombre_entidad <- NULL
 # eliminar supersalud que no sé manejar jeje
 indicadores_gen$supers_ind2_efectividad_en_auditoria <- NULL
 
+#eliminar otros indicadores de supersalud que no yudaron
+indicadores_gen$supers_perc_pacientes_hipertension <- NULL
+indicadores_gen$supers_oportun_atencion_consulta_odonto_general <- NULL
+indicadores_gen$supers_oportun_asign_citas_consulta_general <- NULL
+indicadores_gen$supers_tasa_satis_global <- NULL
+
 #pasar a factor las nominales a ver si funciona el modelo
 #indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
-#indicadores_clas$orden_entidad <- as.factor(indicadores_clas$orden_entidad)
-#indicadores_clas$departamento_entidad <- as.factor(indicadores_clas$departamento_entidad)
+#indicadores_gen$orden_entidad <- as.factor(indicadores_gen$orden_entidad)
+#indicadores_gen$departamento_entidad <- as.factor(indicadores_gen$departamento_entidad)
 
 # eliminar la columna de los deptos porque no es importante 
 #indicadores_gen$departamento_entidad <- NULL
@@ -281,24 +289,24 @@ indicadores_gen <- indicadores_gen %>%
                             indba_perc_cdirec_num <= 55 ~ "Medio",
                             TRUE ~ "Alto"))
 
-#indicadores_clas$riesgo <- as.factor(indicadores_clas$riesgo)
+#indicadores_gen$riesgo <- as.factor(indicadores_gen$riesgo)
 
 # Eliminar la columna de la que se sacó la información
-#indicadores_clas$perc_contr_directa_num <- NULL
+#indicadores_gen$perc_contr_directa_num <- NULL
 
-#indicadores_clas$riesgo <- NULL
+#indicadores_gen$riesgo <- NULL
 #Ccalcular los cuartiles
-#cartiles <-quantile(indicadores_clas$perc_contr_directa_num)
+#cartiles <-quantile(indicadores_gen$perc_contr_directa_num)
 
 # crear la columna de los cuartiles
-#indicadores_clas <- indicadores_clas %>% 
+#indicadores_gen <- indicadores_gen %>% 
 #  mutate(quartil = case_when(perc_contr_directa_num <= cartiles[2] ~ "Q1",
 #                             perc_contr_directa_num <= cartiles[3] ~ "Q2",
 #                             perc_contr_directa_num <= cartiles[4] ~ "Q3",
 #                             TRUE ~ "Q4") )
 
 #verfiicar que si esta funcionando
-#indicadores_clas %>% dplyr::select(perc_contr_directa_num, quartil)
+#indicadores_gen %>% dplyr::select(perc_contr_directa_num, quartil)
 
 # hacer histograma con la distribucion de los cuartiles
 ggplot(indicadores_gen, aes(indba_perc_cdirec_num)) + 
@@ -320,12 +328,27 @@ Eliminar el porcentaje de contratacion directa
 ```{r}
 indicadores_gen$indba_perc_cdirec_num <- NULL
 
-indicadores_gen$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_gen$supers_ind10_oportunidad_entrega_reporte_info)] <- "NO REGISTRA"
+#indicadores_gen$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_gen$supers_ind10_oportunidad_entrega_reporte_info)] <- "NO REGISTRA"
+
+#head(indicadores_gen[,182:186], 10)
+
+indicadores_gen$indba_perc_cdirec_num <- NULL
+
+indicadores_gen$indba_contr_finyr_directa_dto <- NULL
+indicadores_gen$indba_contr_finyr_directa_hos <- NULL
+#indicadores_clas$indba_contr_finyr_hos <- NULL
+indicadores_gen$indba_prop_contr_finyr_hos <- NULL
+indicadores_gen$indba_prop_contr_finyr_dto <- NULL
+
+#indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info)] <- "NO REGISTRA"
+
 
 indicadores_gen <- indicadores_gen %>% 
   mutate_if(is.character, factor)
 
-head(indicadores_gen[,182:186], 10)
+#head(indicadores_clas[,182:184], 10)
+
+#indicadores_clas <- indicadores_clas[,c(1:18, 184)]
 ```
 
 División de los datos en train y test
