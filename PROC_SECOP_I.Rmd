@@ -202,6 +202,13 @@ SECOP_I <- unite(SECOP_I,
                  remove = FALSE)
 ```
 
+Fechas
+
+```{r}
+#Pasar a formato fecha
+SECOP_I$fecha_cargue_secop <- as.Date(SECOP_I$fecha_cargue_secop, "%m/%d/%y")
+```
+
 crear la base de datos de secop directa
 
 ```{r}

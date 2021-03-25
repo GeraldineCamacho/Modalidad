@@ -895,7 +895,7 @@ hospitales <- hospitales %>%
 ```
 
 
-### Unir los indicadores por departamentos y municipios a los hospitales (entidades)
+## Unir los indicadores por departamentos y municipios a los hospitales (entidades)
 
 ```{r}
 #modificar nombres de columnas de cada taba
@@ -932,11 +932,218 @@ sapply(supersalud_calidad_20151, function(x) sum(is.na(x)))
 write.csv(entidades, file = "entidades.csv", row.names = TRUE)
 ```
 
-# Intentar merge de entidades (hospitales) con indicadores_bd_td
+
+## Cercanos a fin de año
+
+```{r}
+# se pasaron las fechas a año
+SECOP_I$fecha_cargue_secop <- as.Date(SECOP_I$fecha_cargue_secop, "%m/%d/%y")
+head(SECOP_I)
+```
+
+Cantidad de contratos cercanos a fin de año:  Cuál es lel tipo de proceso más común los fines de año en secop normal?
+
+```{r}
+SECOP_I %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(tipo_proceso) %>% 
+  arrange(desc(n))
+#  filter(between(fecha_firma_contrato, as.Date("12-01-2015"), as.Date("31-01-2015"))) %>% 
+
+# departamentos
+deptos_finyr <- merge(
+SECOP_I %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(departamento_entidad) %>% 
+  arrange(desc(n)),
+secop_directa %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(departamento_entidad) %>% 
+  arrange(desc(n)),
+by = "departamento_entidad",
+all.x = TRUE
+) %>% rename("indba_contr_finyr_dto" = "n.x",
+             "indba_contr_finyr_directa_dto" = "n.y") 
+
+# Cambiar nos NA por ceros
+deptos_finyr <- data.frame(sapply(deptos_finyr, cambio_na))
+
+# pasar a numérico las variables que están como char
+deptos_finyr[, 2:ncol(deptos_finyr)] <- setNames(data.frame(lapply(deptos_finyr[, 2:ncol(deptos_finyr)], as.numeric)), 
+                        colnames(deptos_finyr[, 2:ncol(deptos_finyr)]))
+
+deptos_finyr <-
+  deptos_finyr %>% 
+  mutate(indba_prop_contr_finyr_dto = as.numeric(sprintf("%.2f", 
+                                                     (indba_contr_finyr_directa_dto / indba_contr_finyr_dto)*100))) 
+
+#hospitales
+SECOP_I %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(nombre_entidad) %>% 
+  arrange(desc(n))
+
+# departamentos
+hospitales_finyr <- 
+  merge(
+SECOP_I %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(nombre_entidad, departamento_entidad) %>% 
+  arrange(desc(n)),
+secop_directa %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(nombre_entidad) %>% 
+  arrange(desc(n)),
+by = "nombre_entidad",
+all.x = TRUE
+) %>% rename("indba_contr_finyr_hos" = "n.x",
+             "indba_contr_finyr_directa_hos" = "n.y") 
+
+# Cambiar nos NA por ceros
+hospitales_finyr <- data.frame(sapply(hospitales_finyr, cambio_na))
+
+# pasar a numérico las variables que están como char
+hospitales_finyr[, 3:ncol(hospitales_finyr)] <- setNames(data.frame(lapply(hospitales_finyr[, 3:ncol(hospitales_finyr)], as.numeric)), 
+                        colnames(hospitales_finyr[, 3:ncol(hospitales_finyr)]))
+
+hospitales_finyr <-
+  hospitales_finyr %>% 
+  mutate(indba_prop_contr_finyr_hos = as.numeric(sprintf("%.2f", 
+                                                     (indba_contr_finyr_directa_hos / indba_contr_finyr_hos)*100))) 
+
+head(hospitales_finyr)
+```
+
+
+merge entre finyr deptos y hospitales
+
+```{r}
+hospitales_finyr <- merge(hospitales_finyr,
+      deptos_finyr,
+      by = "departamento_entidad",
+      all.x = TRUE) %>% 
+  dplyr::select(-departamento_entidad)
+```
+
+
+cuál es lel tipo de proceso más común los fines de año en secop diecta
+
+```{r}
+#hospitales
+secop_directa %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(nombre_entidad) %>% 
+  arrange(desc(n))
+
+# departamentos
+secop_directa %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(departamento_entidad) %>% 
+  arrange(desc(n))
+
+```
+
+
+# Intentar merge de entidades (hospitales) con indicadores_bd_td y luego con hospitales_finyr
+
+Entre entidades y indicadores_bd_td
 
 ```{r}
 # filtrar las columnas deseadas de las entidades
 # hacer el merge por nombre de entidad
 # correr el random forest
+
+# entidades con indicadores_bt_td
+indicadores_bd_td <- merge( indicadores_bd_td,
+                            entidades %>% dplyr::select( nombre_entidad_hos,
+                                                         contratos_minima_cuantia_hos,
+                                                         prop_contr_minima_cuantia_hos,
+                                                         valor_contratos_minima_cuantia_hos,
+                                                         prop_val_minima_cuantia_hos,
+                                                         contratos_minima_cuantia_depto,
+                                                         prop_contr_minima_cuantia_depto,
+                                                         valor_contratos_minima_cuantia_depto,
+                                                         prop_val_minima_cuantia_depto),
+                            by.x = "nombre_entidad",
+                            by.y = "nombre_entidad_hos",
+                            all.x = TRUE )
 ```
+
+Entre los hospitales_finyr y los indicadores_bd_td
+
+```{r}
+indicadores_bd_td <- merge(indicadores_bd_td,
+                          hospitales_finyr,
+                          by = "nombre_entidad",
+                          all.x = TRUE)
+```
+
+Ajustar los NAs
+
+```{r}
+indicadores_bd_td <- data.frame(sapply(indicadores_bd_td, cambio_na))
+
+# pasar a numérico las variables que están como char
+indicadores_bd_td[, 9:ncol(indicadores_bd_td)] <- setNames(data.frame(lapply(indicadores_bd_td[, 9:ncol(indicadores_bd_td)], as.numeric)), 
+                        colnames(indicadores_bd_td[, 9:ncol(indicadores_bd_td)]))
+
+head(indicadores_bd_td)
+
+sum(sapply(indicadores_bd_td, is.numeric))
+
+sapply(indicadores_bd_td, function(x) sum(is.na(x)))
+```
+
+Añadir inmdm_clasificacion porque se daño cuando se pasó a numérico
+
+```{r}
+#indicadores_bd_td$inmdm_clasificacion <- NULL
+
+indicadores_bd_td <- merge(indicadores_bd_td,
+      MDM %>% dplyr::select(cod_entidad, inmdm_clasificacion),
+      by = "cod_entidad",
+      all.x = TRUE,
+      all.y = FALSE)
+
+head(indicadores_bd_td)
+```
+
+## Escribir el .csv
+
+```{r}
+write.csv(indicadores_bd_td, file = "indicadores_bd_td_v2.csv", row.names = TRUE)
+```
+
 
