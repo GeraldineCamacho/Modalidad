@@ -931,6 +931,18 @@ sum(sapply(indicadores_bd_td, is.numeric))
 sapply(indicadores_bd_td, function(x) sum(is.na(x)))
 ```
 
+Teniendo la cantidad de contratos a fin de año se puede calcular la proporción que los contratos a fin de año representan en la totalidad del año
+
+```{r}
+indicadores_bd_td %>% mutate(
+  indba_prop_contr_finyr_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100 ) %>% dplyr::select(nombre_entidad, indba_prop_contr_finyr_total_hos) %>% arrange(desc(indba_prop_contr_finyr_total_hos))
+
+
+# en la base de datos
+indicadores_bd_td <- indicadores_bd_td %>% mutate(
+  indba_prop_contr_finyr_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100)
+```
+
 ## Escribir el .csv
 
 ```{r}
