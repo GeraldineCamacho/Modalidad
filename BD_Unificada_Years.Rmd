@@ -270,6 +270,14 @@ indicadores_bd_td <- merge(indicadores_bd_td,
                        all.y=TRUE)
 ```
 
+cambiar nombre de indidacor de corrupción
+
+```{r}
+indicadores_bd_td <- indicadores_bd_td %>% 
+  rename("indba_riesgo_corrupcion" = "ind_riesgo_corrupcion")
+```
+
+
 ### Procesamiento final economía unida
 
 Ordenr el nombre de las columnas
@@ -313,7 +321,7 @@ Aquí se unen añaden algunos indicadores que no se encontraron en Terridata ni 
 ## MDM (Medición del Desempeño Municipal)
 
 ```{r}
-MDM <- read_excel("Resultados_2018_MDM.xlsx")
+mdm <- read_excel("Resultados_2018_MDM.xlsx")
 
 ### Ajustar nombres
 nombres_mdm <- c("cod_entidad", "depto" , "municipio" , "grupo_cap_iniciales",
@@ -325,29 +333,34 @@ nombres_mdm <- c("cod_entidad", "depto" , "municipio" , "grupo_cap_iniciales",
                  "inmdm_ind_ppuntaje_res_2018_mun", "inmdm_ajuste_por_resultados_mun",
                  "inmdm_puesto_resultados_grupo_capacidades", "inmdm_puntaje_mdm_2018",
                  "inmdm_puesto_mdm_grupo_capacidades", "inmdm_clasificacion")
-names(MDM) <- nombres_mdm
-MDM$cod_entidad <- as.numeric(MDM$cod_entidad)
+names(mdm) <- nombres_mdm
+mdm$cod_entidad <- as.numeric(mdm$cod_entidad)
 
 ### Seleccionar datos
-MDM <- MDM %>% 
+mdm <- mdm %>% 
   dplyr::select(cod_entidad, inmdm_gestion_mov_recursos_mun, inmdm_gestion_ejec_recursos_mun,
                 inmdm_gestion_ord_territorial_mun, inmdm_gobno_abierto_transparencia_mun,
                 inmdm_puntaje_gestion_mun,inmdm_ind_ppuntaje_res_2018_mun, inmdm_puntaje_mdm_2018,
                 inmdm_clasificacion)
 
+mdm <- mdm %>% mutate(
+  inmdm_clasificacion = case_when(inmdm_clasificacion == "Bajo" ~ 1,
+                                  inmdm_clasificacion == "Medio" ~ 2,
+                                  TRUE ~ 3)
+  )
+```
+
+unir el mdm
+
+```{r}
+#indicadores_bd_td <- indicadores_bd_td[ , 1:88]
+
 ### Agregar MDM a la base de datos de los indicadores
 indicadores_bd_td <- merge(indicadores_bd_td,
-                           MDM,
+                           mdm,
                            by = "cod_entidad",
                            all.x = TRUE,
                            all.y = FALSE)
-```
-
-cambiar nombre de indidacor de corrupción
-
-```{r}
-indicadores_bd_td <- indicadores_bd_td %>% 
-  rename("indba_riesgo_corrupcion" = "ind_riesgo_corrupcion")
 ```
 
 escribir base de datos

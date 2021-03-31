@@ -355,10 +355,10 @@ supersalud_calidad_20151 <- supersalud_calidad_20151 %>% dplyr::select(nit_ips,
                 Oportunidad_en_la_atencion_en_consulta_de_odontologia_general,
                 Proporcion_de_pacientes_con_hipertension_arterial_controlada) %>% 
   rename(
-    "supers_tasa_satis_global" = "Tasa_de_satisfacion_global",
-    "supers_oportun_asign_citas_consulta_general" = "Oportunidad_de_la_asignacion_de_citas_en_la_consulta_medica_general",
-    "supers_oportun_atencion_consulta_odonto_general" = "Oportunidad_en_la_atencion_en_consulta_de_odontologia_general",
-    "supers_perc_pacientes_hipertension" = "Proporcion_de_pacientes_con_hipertension_arterial_controlada"
+    "supers_tasa_satis_global_hos" = "Tasa_de_satisfacion_global",
+    "supers_oportun_asign_citas_consulta_general_hos" = "Oportunidad_de_la_asignacion_de_citas_en_la_consulta_medica_general",
+    "supers_oportun_atencion_consulta_odonto_general_hos" = "Oportunidad_en_la_atencion_en_consulta_de_odontologia_general",
+    "supers_perc_pacientes_hipertension_hos" = "Proporcion_de_pacientes_con_hipertension_arterial_controlada"
   )
 
 # ver los NA por cada columna
@@ -900,15 +900,15 @@ hospitales <- hospitales %>%
 ```{r}
 #modificar nombres de columnas de cada taba
 #depto
-orden_depto<- paste(orden_depto, "depto", sep = "_")
+orden_depto <- paste("indba", orden_depto, "dto", sep = "_")
 names(deptos) <- orden_depto
 
 #municipios
-orden_mun <- paste(orden_mun, "mun", sep = "_")
+orden_mun <- paste("indba", orden_mun, "mun", sep = "_")
 names(municipios) <- orden_mun
 
 #hospitales
-orden_hos <- paste(orden_hos, "hos", sep = "_")
+orden_hos <- paste("indba", orden_hos, "hos", sep = "_")
 names(hospitales) <- orden_hos
 
 # unir los municipios a los hospitales
@@ -920,7 +920,7 @@ entidades <- merge(hospitales, municipios,
 # unir los departamentos a los hospitales
 entidades <- merge(entidades, deptos,
                    by.x = "departamento_entidad_hos",
-                   by.y = "departamento_ejecucion_depto",
+                   by.y = "departamento_ejecucion_dto",
                    all.x = TRUE)
 
 #entidades$departamento_entidad_hos <- NULL
@@ -1092,10 +1092,10 @@ indicadores_bd_td <- merge( indicadores_bd_td,
                                                          prop_contr_minima_cuantia_hos,
                                                          valor_contratos_minima_cuantia_hos,
                                                          prop_val_minima_cuantia_hos,
-                                                         contratos_minima_cuantia_depto,
-                                                         prop_contr_minima_cuantia_depto,
-                                                         valor_contratos_minima_cuantia_depto,
-                                                         prop_val_minima_cuantia_depto),
+                                                         contratos_minima_cuantia_dto,
+                                                         prop_contr_minima_cuantia_dto,
+                                                         valor_contratos_minima_cuantia_dto,
+                                                         prop_val_minima_cuantia_dto),
                             by.x = "nombre_entidad",
                             by.y = "nombre_entidad_hos",
                             all.x = TRUE )
