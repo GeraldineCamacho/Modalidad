@@ -195,6 +195,15 @@ SECOP_I <- SECOP_I %>% filter(!(anno_cargue > anno_firma))
 sacar una columna para los departamentos de ejecución
 
 ```{r}
+  # Con este parte del codigo extraigo el departamento de ejecución
+  depto_entidad <- str_sub(string = SECOP_I$municipio_ejecucion, 
+               start = 1L, 
+               end = str_locate(string = SECOP_I$municipio_ejecucion, pattern = "-")[,1]-2)
+```
+
+Unir los deptos y los municipios para generar la llave de union
+
+```{r}
 SECOP_I <- unite(SECOP_I,
                  depto_mun, 
                  c("departamento_entidad", "municipio_entidad"),
@@ -584,11 +593,11 @@ secop_directa <- SECOP_I %>%
 ### Departamentos 
 ```{r}
   # Con este parte del codigo extraigo el departamento de ejecución
-depto_entidad <- str_sub(string = SECOP_I$municipio_ejecucion, 
-               start = 1L, 
-               end = str_locate(string = SECOP_I$municipio_ejecucion, pattern = "-")[,1]-2)
+#depto_entidad <- str_sub(string = SECOP_I$municipio_ejecucion, 
+#               start = 1L, 
+#               end = str_locate(string = SECOP_I$municipio_ejecucion, pattern = "-")[,1]-2)
 
-SECOP_I$departamento_ejecucion <- depto_entidad
+#SECOP_I$departamento_ejecucion <- depto_entidad
 
 #departamentos
 total_contratos <- SECOP_I %>% 
