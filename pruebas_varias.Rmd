@@ -493,7 +493,8 @@ SECOP_I$departamento_ejecucion <- depto_entidad
 
 hacer la tabla, los datos
 
-## Departamentos
+
+### Departamentos
 
 ```{r}
 #departamentos
@@ -511,9 +512,14 @@ total_contratos_directos <- secop_directa %>%
 deptos <- merge(total_contratos,
                 total_contratos_directos,
                 by = "departamento_ejecucion",
-                all.y = TRUE) %>% 
+                all.x = TRUE) %>% 
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
+
+# Función de cambio de los NA por ceros
+cambio_na = function(x){
+  ifelse(is.na(x),0,x)
+}
 
 ## ADICIONES
 contratos_adiciones <- SECOP_I %>% 
@@ -531,11 +537,6 @@ deptos_adiciones <- merge(contratos_adiciones,
                           all.x = TRUE) %>% 
   mutate(prop_cont_dir_adic = as.numeric(sprintf("%.2f",
                                                 (contratos_adiciones_dir / contratos_adiciones)*100)))
-
-# Función de cambio de los NA por ceros
-cambio_na = function(x){
-  ifelse(is.na(x),0,x)
-}
 
 # Cambiar nos NA por ceros
 deptos_adiciones <- data.frame( sapply(deptos_adiciones, cambio_na) )
@@ -560,11 +561,8 @@ minima_cuantia <- SECOP_I %>%
             valor_contratos_minima_cuantia = sum(valor_total_con_adiciones),
             adiciones_minima_cuantia = sum(valor_adiciones))
 
-# Cambiar nos NA por ceros
-deptos <- data.frame( sapply(deptos, cambio_na) )
-
 # agregar la mínima cuantía a la info departamental
-deptos <-merge(deptos,
+deptos <- merge(deptos,
                minima_cuantia,
                by = "departamento_ejecucion",
                all.x = TRUE)
@@ -575,8 +573,6 @@ deptos <- data.frame( sapply(deptos, cambio_na) )
 # pasar a numérico las variables que están como char
 deptos[, 2:ncol(deptos)] <- setNames(data.frame(lapply(deptos[, 2:ncol(deptos)], as.numeric)), 
                         colnames(deptos[, 2:ncol(deptos_adiciones)]))
-
-sum(sapply(deptos, is.numeric))
 
 # calcular porcentajes de mínima cuantía
 deptos <- deptos %>% 
@@ -618,26 +614,18 @@ orden_depto <- c("departamento_ejecucion",
 deptos <- deptos %>% 
               dplyr::select(all_of(orden_depto))
 
-# eliminar registro de San Andrés, providencia y santa catalina
+# eliminar registro de San Andrés, providencia y santa catalina, otros paises y Colombia
 deptos <- deptos[deptos$departamento_ejecucion != "San Andrés, Providencia y Santa Catalina", ]
+deptos <- deptos[deptos$departamento_ejecucion != "Otros Paises", ]
+deptos <- deptos[deptos$departamento_ejecucion != "Colombia", ]
+
 
 # LISTO ESTO POR DEPARTAMENTOS
 ```
 
-## Municipios
+### Municipios
 
-LLave
-
-```{r}
-# generar llave
-SECOP_I <- unite(SECOP_I,
-                 depto_mun, 
-                 c("departamento_entidad", "municipio_entidad"),
-                 sep = " - ",
-                 remove = FALSE)
-```
-
-datos
+Datos
 
 ```{r}
 total_contratos <- SECOP_I %>% 
@@ -654,7 +642,7 @@ total_contratos_directos <- secop_directa %>%
 municipios <- merge(total_contratos,
                 total_contratos_directos,
                 by = "depto_mun",
-                all.y = TRUE) %>% 
+                all.x = TRUE) %>% 
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
 
@@ -702,9 +690,6 @@ minima_cuantia <- SECOP_I %>%
   summarise(contratos_minima_cuantia = n(),
             valor_contratos_minima_cuantia = sum(valor_total_con_adiciones),
             adiciones_minima_cuantia = sum(valor_adiciones))
-
-# Cambiar nos NA por ceros
-municipios <- data.frame( sapply(municipios, cambio_na) )
 
 # agregar la mínima cuantía a la info departamental
 municipios <-merge(municipios,
@@ -762,9 +747,10 @@ municipios <- municipios %>%
               dplyr::select(all_of(orden_mun))
 
 # LISTO ESTO POR MUNICIPIOS
+sapply(municipios, function(x) sum(is.na(x)))
 ```
 
-## Entidades hospitales
+### Entidades hospitales
 
 ```{r}
 total_contratos <- SECOP_I %>% 
@@ -781,7 +767,7 @@ total_contratos_directos <- secop_directa %>%
 hospitales <- merge(total_contratos,
                 total_contratos_directos,
                 by = "nombre_entidad",
-                all.y = TRUE) %>% 
+                all.x = TRUE) %>% 
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
 
@@ -830,9 +816,6 @@ minima_cuantia <- SECOP_I %>%
   summarise(contratos_minima_cuantia = n(),
             valor_contratos_minima_cuantia = sum(valor_total_con_adiciones),
             adiciones_minima_cuantia = sum(valor_adiciones))
-
-# Cambiar nos NA por ceros
-hospitales <- data.frame( sapply(hospitales, cambio_na) )
 
 # agregar la mínima cuantía a la info departamental
 hospitales <-merge(hospitales,
@@ -894,8 +877,7 @@ hospitales <- hospitales %>%
 # LISTO ESTO POR HOSPITALES
 ```
 
-
-## Unir los indicadores por departamentos y municipios a los hospitales (entidades)
+### Unir los indicadores por departamentos y municipios a los hospitales (entidades)
 
 ```{r}
 #modificar nombres de columnas de cada taba
@@ -913,25 +895,21 @@ names(hospitales) <- orden_hos
 
 # unir los municipios a los hospitales
 entidades <- merge(hospitales, municipios, 
-                   by.x = "depto_mun_hos",
-                   by.y = "depto_mun_mun",
+                   by.x = "indba_depto_mun_hos",
+                   by.y = "indba_depto_mun_mun",
                    all.x = TRUE)
 
 # unir los departamentos a los hospitales
 entidades <- merge(entidades, deptos,
-                   by.x = "departamento_entidad_hos",
-                   by.y = "departamento_ejecucion_dto",
+                   by.x = "indba_departamento_entidad_hos",
+                   by.y = "indba_departamento_ejecucion_dto",
                    all.x = TRUE)
 
 #entidades$departamento_entidad_hos <- NULL
 
 #ver si hay NAs
-sapply(supersalud_calidad_20151, function(x) sum(is.na(x)))
-
-# Escribir el .csv
-write.csv(entidades, file = "entidades.csv", row.names = TRUE)
+sapply(entidades, function(x) sum(is.na(x)))
 ```
-
 
 ## Cercanos a fin de año
 
@@ -1087,17 +1065,17 @@ Entre entidades y indicadores_bd_td
 
 # entidades con indicadores_bt_td
 indicadores_bd_td <- merge( indicadores_bd_td,
-                            entidades %>% dplyr::select( nombre_entidad_hos,
-                                                         contratos_minima_cuantia_hos,
-                                                         prop_contr_minima_cuantia_hos,
-                                                         valor_contratos_minima_cuantia_hos,
-                                                         prop_val_minima_cuantia_hos,
-                                                         contratos_minima_cuantia_dto,
-                                                         prop_contr_minima_cuantia_dto,
-                                                         valor_contratos_minima_cuantia_dto,
-                                                         prop_val_minima_cuantia_dto),
+                            entidades %>% dplyr::select( indba_nombre_entidad_hos,
+                                                         indba_contratos_minima_cuantia_hos,
+                                                         indba_prop_contr_minima_cuantia_hos,
+                                                         indba_valor_contratos_minima_cuantia_hos,
+                                                         indba_prop_val_minima_cuantia_hos,
+                                                         indba_contratos_minima_cuantia_dto,
+                                                         indba_prop_contr_minima_cuantia_dto,
+                                                         indba_valor_contratos_minima_cuantia_dto,
+                                                         indba_prop_val_minima_cuantia_dto),
                             by.x = "nombre_entidad",
-                            by.y = "nombre_entidad_hos",
+                            by.y = "indba_nombre_entidad_hos",
                             all.x = TRUE )
 ```
 
@@ -1126,24 +1104,11 @@ sum(sapply(indicadores_bd_td, is.numeric))
 sapply(indicadores_bd_td, function(x) sum(is.na(x)))
 ```
 
-Añadir inmdm_clasificacion porque se daño cuando se pasó a numérico
-
-```{r}
-#indicadores_bd_td$inmdm_clasificacion <- NULL
-
-indicadores_bd_td <- merge(indicadores_bd_td,
-      MDM %>% dplyr::select(cod_entidad, inmdm_clasificacion),
-      by = "cod_entidad",
-      all.x = TRUE,
-      all.y = FALSE)
-
-head(indicadores_bd_td)
-```
 
 ## Escribir el .csv
 
 ```{r}
-write.csv(indicadores_bd_td, file = "indicadores_bd_td_v2.csv", row.names = TRUE)
+write.csv(indicadores_bd_td, file = "indicadores_bd_td.csv", row.names = TRUE)
 ```
 
 ## Leer de nuevo los datos porque lo borré sin querer
@@ -1157,11 +1122,11 @@ Teniendo la cantidad de contratos a fin de año se puede calcular la proporción
 
 ```{r}
 indicadores_bd_td %>% mutate(
-  indba_prop_contr_finyr_dto_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100) %>% dplyr::select(nombre_entidad, indba_prop_contr_finyr_dto_total_hos) %>% arrange(desc(indba_prop_contr_finyr_dto_total_hos))
+  indba_prop_contr_finyr_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100) %>% dplyr::select(nombre_entidad, indba_prop_contr_finyr_total_hos) %>% arrange(desc(indba_prop_contr_finyr_total_hos))
 
 
 # en la base de datos
 indicadores_bd_td <- indicadores_bd_td %>% mutate(
-  indba_prop_contr_finyr_dto_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100)
+  indba_prop_contr_finyr_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100)
 ```
 
