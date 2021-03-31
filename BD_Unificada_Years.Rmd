@@ -800,3 +800,89 @@ sapply(entidades, function(x) sum(is.na(x)))
 # Escribir el .csv
 write.csv(entidades, file = "entidades.csv", row.names = TRUE)
 ```
+
+## Cercanos a fin de año
+
+Extraer los datos
+
+### Departamentos
+
+```{r}
+deptos_finyr <- merge(SECOP_I %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(departamento_entidad) ,
+secop_directa %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(departamento_entidad) ,
+by = "departamento_entidad",
+all.x = TRUE
+) %>% rename("indba_contr_finyr_dto" = "n.x",
+             "indba_contr_finyr_directa_dto" = "n.y") 
+
+# Cambiar nos NA por ceros
+deptos_finyr <- data.frame(sapply(deptos_finyr, cambio_na))
+
+# pasar a numérico las variables que están como char
+deptos_finyr[, 2:ncol(deptos_finyr)] <- setNames(data.frame(lapply(deptos_finyr[, 2:ncol(deptos_finyr)], as.numeric)), 
+                        colnames(deptos_finyr[, 2:ncol(deptos_finyr)]))
+
+head(deptos_finyr)
+
+deptos_finyr <- deptos_finyr %>% 
+  mutate(indba_prop_contr_finyr_dto = as.numeric(sprintf("%.2f", 
+                                                     (indba_contr_finyr_directa_dto / indba_contr_finyr_dto)*100)))
+```
+
+### Hospitales
+
+No se calcula por municipios debido a la falta de datos, por lo que casi siempre los datos para los municipios son los mismos que para los hospitales
+
+```{r}
+hospitales_finyr <- merge(SECOP_I %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(nombre_entidad, departamento_entidad) ,
+secop_directa %>%
+  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(nombre_entidad) ,
+by = "nombre_entidad",
+all.x = TRUE
+) %>% rename("indba_contr_finyr_hos" = "n.x",
+             "indba_contr_finyr_directa_hos" = "n.y") 
+
+# Cambiar nos NA por ceros
+hospitales_finyr <- data.frame(sapply(hospitales_finyr, cambio_na))
+
+# pasar a numérico las variables que están como char
+hospitales_finyr[, 3:ncol(hospitales_finyr)] <- setNames(data.frame(lapply(hospitales_finyr[, 3:ncol(hospitales_finyr)], as.numeric)), 
+                        colnames(hospitales_finyr[, 3:ncol(hospitales_finyr)]))
+
+hospitales_finyr <- hospitales_finyr %>% 
+  mutate(indba_prop_contr_finyr_hos = as.numeric(sprintf("%.2f", 
+                                                     (indba_contr_finyr_directa_hos / indba_contr_finyr_hos)*100)))
+```
+
+Merge entre finyr deptos y hospitales para tener todos los datos en una sola bd
+
+```{r}
+hospitales_finyr <- merge(hospitales_finyr,
+                          deptos_finyr,
+                          by = "departamento_entidad",
+                          all.x = TRUE) %>% 
+  dplyr::select(-departamento_entidad)
+```
