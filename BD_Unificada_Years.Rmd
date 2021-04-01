@@ -943,8 +943,158 @@ indicadores_bd_td <- indicadores_bd_td %>% mutate(
   indba_prop_contr_finyr_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100)
 ```
 
-## Escribir el .csv
+Escribir el .csv
 
 ```{r}
 write.csv(indicadores_bd_td, file = "indicadores_bd_td.csv", row.names = TRUE)
 ```
+
+
+## Supersalud
+
+Leer los datos
+
+```{r}
+supersalud <- read_excel("supersalud_indicadores.xlsx")
+supersalud <- as.data.table(supersalud)
+```
+
+### Ajsutes supersalud
+
+Corrección de algunos datos
+
+```{r}
+supersalud[NIT == "812004010", Entidad := "ESE CAMU DE BUENAVISTA"]
+supersalud[NIT == "891200248", Entidad := "ESE HOSPITAL CLARITA SANTOS"]
+supersalud[NIT == "800193904", Entidad := "ESE HOSPITAL JUAN PABLO II DE ARATOCA"] # tiene 2 NIT
+supersalud[NIT == "890981268", Entidad := "ESE HOSPITAL LA ANUNCIACION DE MUTATA"]
+supersalud[NIT == "900066347", Entidad := "ESE HOSPITAL REGIONAL DE SAN GIL"]
+supersalud[NIT == "800123106", Entidad := "ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA"]
+supersalud[NIT == "834001482", Entidad := "ESE JAIME ALVARADO Y CASTILLA"]
+supersalud[NIT == "820002468", Entidad := "ESE PUESTO DE SALUD DE CIENEGA"]
+supersalud[NIT == "900147959", Entidad := "ESE CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS DE UNE"]
+supersalud[NIT == "891501104", Entidad := "ESE HOSPITAL DE EL TAMBO"] # tiene 2 NIT
+supersalud[NIT == "890981137", Entidad := "ESE HOSPITAL FRANCISCO VALDERRAMA DE TURBO"]
+supersalud[NIT == "890982139", Entidad := "ESE HOSPITAL SAN LORENZO DE LIBORINA"]
+supersalud[NIT == "804005695", Entidad := "ESE SAN ISIDRO"] #tiene 2 NIT pero 8004MAL
+supersalud[NIT == "890802036", Entidad := "HOSPITAL DE SAN MARCOS DE CHINCHINA"]
+supersalud[NIT == "809001086", Entidad := "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS"]
+supersalud[NIT == "800130625", Entidad := "HOSPITAL SAN CRISTOBAL DE CIENAGA"]
+supersalud[NIT == "890680031", Entidad := "HOSPITAL SAN ANTONIO DE ARBELAEZ"]
+supersalud[NIT == "810000913", Entidad := "HOSPITAL SAN FELIX DE LA DORADA"]
+supersalud[NIT == "800204497", Entidad := "HOSPITAL SAN JOSE DE GUACHETA"]
+supersalud[NIT == "890907254", Entidad := "HOSPITAL SAN JUAN DE DIOS DE RIONEGRO"]
+supersalud[NIT == "809001086", Entidad := "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS"]
+supersalud[NIT == "891900356", Entidad := "HOSPITAL SANTANDER DE CAICEDONIA"]
+supersalud[NIT == "804015007", Entidad := "IPS CENTRO DE SALUD DE ENCINO"]
+```
+
+Ajuste de algunas variables
+
+```{r}
+#eliminar tildes
+supersalud$Entidad <- chartr('ÁÉÍÓÚ', 'AEIOU', supersalud$Entidad)
+
+#eliminar puntos
+supersalud$Entidad  <- gsub("[.]", "", supersalud$Entidad )
+
+#pasar a character
+supersalud$NIT <- as.character(supersalud$NIT)
+```
+
+### Ajustes indicadores_db_td
+
+Ajuste de algunas variables
+
+```{r}
+# crear columna de modificacion que a la vez es llave
+indicadores_bd_td <- indicadores_bd_td %>% 
+  separate(nombre_entidad, sep = " - ", into = c("Depto", "Hospital"), remove = FALSE) %>% 
+  dplyr::select(-Depto) %>% 
+  separate(nit_entidad, sep = "-", into = "nit_entidad")
+  
+# Cambios para facilidad de comparación de datos
+indicadores_bd_td$Hospital <- chartr('ÁÉÍÓÚ', 'AEIOU', indicadores_bd_td$Hospital) #eliminar tildes
+indicadores_bd_td$Hospital <- gsub("[.]", "", indicadores_bd_td$Hospital) #eliminar puntos
+indicadores_bd_td$nit_entidad <- gsub("[.]", "", indicadores_bd_td$nit_entidad) #eliminar puntos
+```
+
+Correción de algunos datos en indicadores_bd_td para lograr el mayor número de coincidencias de la llave codigo de entidad
+
+```{r}
+#pasar a data table
+indicadores_bd_td <- as.data.table(indicadores_bd_td)
+
+#correción de datos
+indicadores_bd_td[Hospital == "ESE CAMU DE BUENAVISTA", nit_entidad := "812004010"]
+indicadores_bd_td[Hospital == "ESE CAMU DEL PRADO", nit_entidad := "812002836"]
+indicadores_bd_td[Hospital == "ESE CENTRO DE SALUD SAN VICENTE FERRER", nit_entidad := "820003431"]
+indicadores_bd_td[Hospital == "ESE CENTRO DE SALUD TIMOTEO RIVEROS CUBILLOS DE UNE", nit_entidad := "900147959"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL CLARITA SANTOS", nit_entidad := "891200248"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL DE EL TAMBO", nit_entidad := "891501104"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL FRANCISCO VALDERRAMA DE TURBO", nit_entidad := "890981137"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL JUAN PABLO II DE ARATOCA", nit_entidad := "800193904"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL LA ANUNCIACION DE MUTATA", nit_entidad := "890981268"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL NUESTRA SEÑORA DE LA CANDELARIA", nit_entidad := "890981719"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL NUESTRA SEÑORA SANTA ANA", nit_entidad := "819000626"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL REGIONAL DE SAN GIL", nit_entidad := "900066347"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL REGIONAL NORTE", nit_entidad := "807008857"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL SAN JOSE", nit_entidad := "891901745"]
+indicadores_bd_td[Hospital == "ESE HOSPITAL SAN LORENZO DE LIBORINA", nit_entidad := "890982139"]
+#indicadores_bd_td[Hospital == "ESE HOSPITAL SAN VICENTE DE PAUL", nit_entidad := ""] # ojo con este
+indicadores_bd_td[Hospital == "ESE HOSPITAL VENANCIO DIAZ DIAZ DE SABANETA", nit_entidad := "800123106"]
+indicadores_bd_td[Hospital == "ESE JAIME ALVARADO Y CASTILLA", nit_entidad := "834001482"]
+indicadores_bd_td[Hospital == "ESE PUESTO DE SALUD DE CIENEGA", nit_entidad := "820002468"]
+indicadores_bd_td[Hospital == "ESE SAN ISIDRO", nit_entidad := "804005695"]
+indicadores_bd_td[Hospital == "HOSPITAL DE SAN MARCOS DE CHINCHINA", nit_entidad := "890802036"]
+indicadores_bd_td[Hospital == "HOSPITAL SAN ANTONIO DE ARBELAEZ", nit_entidad := "890680031"]
+indicadores_bd_td[Hospital == "HOSPITAL SAN CRISTOBAL DE CIENAGA", nit_entidad := "800130625"]
+indicadores_bd_td[Hospital == "HOSPITAL SAN FELIX DE LA DORADA", nit_entidad := "810000913"]
+indicadores_bd_td[Hospital == "HOSPITAL SAN JOSE DE GUACHETA", nit_entidad := "800204497"]
+indicadores_bd_td[Hospital == "HOSPITAL SAN JUAN DE DIOS DE RIONEGRO", nit_entidad := "890907254"]
+indicadores_bd_td[Hospital == "HOSPITAL SANTANDER DE CAICEDONIA", nit_entidad := "891900356"]
+indicadores_bd_td[Hospital == "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS", nit_entidad := "809001086"]
+indicadores_bd_td[Hospital == "IPS CENTRO DE SALUD DE ENCINO", nit_entidad := "804015007"]
+```
+
+Hacer el merge
+
+```{r}
+indicadores_bd_td <- merge(x = indicadores_bd_td,
+                              y = supersalud,
+                              by.x = "nit_entidad",
+                              by.y = "NIT",
+                              all.x = TRUE,
+                              all.y = FALSE) %>%
+  dplyr::select(-Hospital, -Entidad) %>% 
+  rename("supers_ind2_efectividad_en_auditoria_hos" = "Indicador2: Efectividad en la auditoría para el mejoramiento continuo de la calidad",
+         "supers_ind10_oportunidad_entrega_reporte_info_hos" = "Indicador10: Oportunidad en la entrega del reporte de información en Cumplimiento de la Circular Única o norma que la sustituya.")
+```
+
+Ajuste de los NAs
+
+```{r}
+# Bien porque si no tiene información es como si no cumpliera
+# indicador 10
+indicadores_bd_td <- indicadores_bd_td %>% mutate(
+  supers_ind10_oportunidad_entrega_reporte_info_hos = case_when(
+    supers_ind10_oportunidad_entrega_reporte_info_hos == "NO CUMPLE" ~ 0,
+    TRUE ~ 1) )
+
+# pasar a factor
+indicadores_bd_td$supers_ind10_oportunidad_entrega_reporte_info_hos <- as.factor(indicadores_bd_td$supers_ind10_oportunidad_entrega_reporte_info_hos)
+
+
+#con el indicador 2
+indicadores_bd_td[supers_ind2_efectividad_en_auditoria_hos == "SIN REPORTE", supers_ind2_efectividad_en_auditoria_hos := 0]
+
+indicadores_bd_td[supers_ind2_efectividad_en_auditoria_hos == "NO APLICA", supers_ind2_efectividad_en_auditoria_hos := 1]
+
+indicadores_bd_td$supers_ind2_efectividad_en_auditoria_hos[is.na(indicadores_bd_td$supers_ind2_efectividad_en_auditoria_hos)] <- "0"
+
+indicadores_bd_td$supers_ind2_efectividad_en_auditoria_hos <- as.numeric(indicadores_bd_td$supers_ind2_efectividad_en_auditoria_hos)
+
+head(indicadores_bd_td)
+```
+
+
