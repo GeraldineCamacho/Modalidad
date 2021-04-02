@@ -238,9 +238,7 @@ xgb.plot.importance(importance_matrix = importance_matrix)
 Lectura de los datos
 ```{r}
 #indicadores_gen <- read.csv("indicadores_BD.csv")
-indicadores_gen <- indicadores_bd_td
-head(indicadores_gen)
-
+#indicadores_gen <- indicadores_bd_td
 head(indicadores_gen)
 ```
 

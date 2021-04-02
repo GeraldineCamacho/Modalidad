@@ -281,35 +281,65 @@ Lectura de los datos
 ```{r}
 #indicadores_clas <- read.csv("indicadores_BD.csv")
 
-indicadores_clas <- indicadores_bd_td
+indicadores_clas <- indicadores_bd_td %>% arrange()
 head(indicadores_clas)
 ```
 
+Columnas que no se tienen en cuenta
+
+```{r}
+variables_no_necesarias <- c(
+  "nombre_entidad",
+  "cod_entidad",
+  "cod_departamento",
+  "nit_entidad",
+  "municipio_entidad",
+  "depto_mun"
+)
+
+variables_info_directa <- c(
+  # Indicadores iniciales
+  "indba_perc_direc_val",
+  "indba_perc_cerrada_num",
+  "indba_perc_cerrada_val",
+  # Fin de año (finyr)
+  "indba_contr_finyr_directa_dto",
+  "indba_prop_contr_finyr_dto",
+  "indba_contr_finyr_directa_hos",
+  "indba_prop_contr_finyr_hos" )
+
+indicadores_clas <- indicadores_gen
+```
+
+
 Eliminar columnas que no son necesarias
 ```{r}
-indicadores_clas$X <- NULL
-indicadores_clas$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
-indicadores_clas$nit_entidad <- NULL
-indicadores_clas$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
-indicadores_clas$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
-indicadores_clas$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
+#indicadores_clas$X <- NULL
+#indicadores_clas$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
+#indicadores_clas$nit_entidad <- NULL
+#indicadores_clas$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
+#indicadores_clas$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
+#indicadores_clas$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
 
 #Eliminar contratación directa
-indicadores_clas$indba_perc_direc_val <- NULL #porque se supone que no tenemos info de contr. 
-indicadores_clas$indba_perc_cerrada_num <- NULL
-indicadores_clas$indba_perc_cerrada_val <- NULL
+#indicadores_clas$indba_perc_direc_val <- NULL #porque se supone que no tenemos info de contr. 
+#indicadores_clas$indba_perc_cerrada_num <- NULL
+#indicadores_clas$indba_perc_cerrada_val <- NULL
 
 #para volver a correr el modelo porque con esta columna genera error 
-indicadores_clas$nombre_entidad <- NULL
+#indicadores_clas$nombre_entidad <- NULL
 
 # eliminar supersalud que no sé manejar jeje
-indicadores_clas$supers_ind2_efectividad_en_auditoria <- NULL
+indicadores_clas$supers_ind2_efectividad_en_auditoria_hos <- NULL
+#indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info_hos <- NULL
+
+indicadores_clas$indba_prop_contr_finyr_total_hos <- NULL
 
 #eliminar otros indicadores de supersalud que no yudaron
-indicadores_clas$supers_perc_pacientes_hipertension <- NULL
-indicadores_clas$supers_oportun_atencion_consulta_odonto_general <- NULL
-indicadores_clas$supers_oportun_asign_citas_consulta_general <- NULL
-indicadores_clas$supers_tasa_satis_global <- NULL
+#indicadores_clas$supers_perc_pacientes_hipertension <- NULL
+#indicadores_clas$supers_oportun_atencion_consulta_odonto_general <- NULL
+#indicadores_clas$supers_oportun_asign_citas_consulta_general <- NULL
+#indicadores_clas$supers_tasa_satis_global <- NULL
 
 #pasar a factor las nominales a ver si funciona el modelo
 #indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
@@ -323,6 +353,11 @@ indicadores_clas$supers_tasa_satis_global <- NULL
 
 # ver si el modelo hace un mejor trabajo solo con los que tienen contr directa >0
 #indicadores_gen <- indicadores_gen %>% filter(perc_contr_directa_num>0)
+
+
+# eliminar las no necesarias
+indicadores_clas <- indicadores_clas %>%
+  dplyr::select(-all_of(variables_no_necesarias), -all_of(variables_info_directa))
 
 #crear los rangos
 indicadores_clas <- indicadores_clas %>% 
@@ -369,13 +404,13 @@ Eliminar el porcentaje de contratacion directa
 ```{r}
 indicadores_clas$indba_perc_cdirec_num <- NULL
 
-indicadores_clas$indba_contr_finyr_directa_dto <- NULL
-indicadores_clas$indba_contr_finyr_directa_hos <- NULL
+#indicadores_clas$indba_contr_finyr_directa_dto <- NULL
+#indicadores_clas$indba_contr_finyr_directa_hos <- NULL
 #indicadores_clas$indba_contr_finyr_hos <- NULL
-indicadores_clas$indba_prop_contr_finyr_hos <- NULL
-indicadores_clas$indba_prop_contr_finyr_dto <- NULL
+#indicadores_clas$indba_prop_contr_finyr_hos <- NULL
+#indicadores_clas$indba_prop_contr_finyr_dto <- NULL
 
-#indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info)] <- "NO REGISTRA"
+#indicdores_clas$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_clas$supers_ind10_oportunidad_entraega_reporte_info)] <- "NO REGISTRA"
 
 indicadores_clas <- indicadores_clas %>% 
   mutate_if(is.character, factor)
@@ -387,7 +422,7 @@ indicadores_clas <- indicadores_clas %>%
 
 División de los datos en train y test
 ```{r}
-set.seed(456)
+set.seed(458)
 indicadores_clas_split <- initial_split(indicadores_clas,
                                         strata = riesgo)
 indicadores_clas_train <- training(indicadores_clas_split)
