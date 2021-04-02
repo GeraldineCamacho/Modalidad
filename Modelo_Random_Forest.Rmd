@@ -281,7 +281,7 @@ Lectura de los datos
 ```{r}
 #indicadores_clas <- read.csv("indicadores_BD.csv")
 
-indicadores_clas <- indicadores_bd_td %>% arrange()
+indicadores_clas <- indicadores_bd_td
 head(indicadores_clas)
 ```
 
@@ -307,8 +307,6 @@ variables_info_directa <- c(
   "indba_prop_contr_finyr_dto",
   "indba_contr_finyr_directa_hos",
   "indba_prop_contr_finyr_hos" )
-
-indicadores_clas <- indicadores_gen
 ```
 
 
@@ -331,7 +329,7 @@ Eliminar columnas que no son necesarias
 
 # eliminar supersalud que no sé manejar jeje
 indicadores_clas$supers_ind2_efectividad_en_auditoria_hos <- NULL
-#indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info_hos <- NULL
+indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info_hos <- NULL
 
 indicadores_clas$indba_prop_contr_finyr_total_hos <- NULL
 
@@ -372,13 +370,13 @@ indicadores_clas <- indicadores_clas %>%
 
 #indicadores_clas$riesgo <- NULL
 #Ccalcular los cuartiles
-#cartiles <-quantile(indicadores_clas$perc_contr_directa_num)
+#cartiles <-quantile(indicadores_clas$indba_perc_cdirec_num)
 
 # crear la columna de los cuartiles
 #indicadores_clas <- indicadores_clas %>% 
-#  mutate(quartil = case_when(perc_contr_directa_num <= cartiles[2] ~ "Q1",
-#                             perc_contr_directa_num <= cartiles[3] ~ "Q2",
-#                             perc_contr_directa_num <= cartiles[4] ~ "Q3",
+#  mutate(quartil = case_when(indba_perc_cdirec_num <= cartiles[2] ~ "Q1",
+#                             indba_perc_cdirec_num <= cartiles[3] ~ "Q2",
+#                             indba_perc_cdirec_num <= cartiles[4] ~ "Q3",
 #                             TRUE ~ "Q4") )
 
 #verfiicar que si esta funcionando
@@ -392,7 +390,7 @@ ggplot(indicadores_clas, aes(indba_perc_cdirec_num)) +
   geom_vline(xintercept = cartiles[3], color = "red") +
   geom_vline(xintercept = cartiles[4], color = "red") + 
   geom_vline(xintercept = cartiles[5], color = "red") +
-  scale_x_continuous(breaks = seq(0,100,5)) +
+  scale_x_continuous(breaks = seq(0,100,10)) +
   labs(title = "Distribución de porcentaje de contratación directa",
        x = "Porcentaje de contratación directa",
        y = "Densidad") +
@@ -602,3 +600,10 @@ Con variable indba_prop_contr_finyr_total_hos el
 ACC bajo de 0,671 a 0,666
 ROC subió de 0,736 a 0,748
 GINI bajó de 0,2589 a 0,2579
+
+ver si hay nas
+
+```{r}
+sapply(indicadores_bd_td, function(x) sum(is.na(x)))
+```
+
