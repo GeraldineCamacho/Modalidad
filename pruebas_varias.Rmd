@@ -512,7 +512,7 @@ total_contratos_directos <- secop_directa %>%
 deptos <- merge(total_contratos,
                 total_contratos_directos,
                 by = "departamento_ejecucion",
-                all.x = TRUE) %>% 
+                all.y = TRUE) %>% 
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
 
@@ -622,6 +622,50 @@ deptos <- deptos[deptos$departamento_ejecucion != "Colombia", ]
 
 # LISTO ESTO POR DEPARTAMENTOS
 ```
+
+#### Ver el problema que había con lo de la mínima cuantía en deptos
+
+```{r}
+head(SECOP_I)
+sum(indicadores_bd_td$indba_contratos_minima_cuantia_dto)
+498867
+sum(indicadores_gen$contratos_minima_cuantia_depto)
+403616
+sum(indicadores_bd_td$indba_contratos_minima_cuantia_hos)
+5300
+sum(indicadores_gen$contratos_minima_cuantia_hos)
+5015
+sum(deptos$contratos)
+1337876
+sum(deptos_2$contratos)
+1335158
+sum(deptos$contratos)-336-1
+1337539
+sum(deptos$contratos)-2717-1
+1335158
+
+95251
+
+SECOP_I %>% filter(departamento_entidad == "Vaupés") %>% count(nombre_entidad)
+
+indicadores_gen %>% group_by(departamento_entidad) %>% summarise(total = n()) %>% arrange(desc(total))
+
+indicadores_gen %>% group_by(departamento_entidad) %>% summarise(total = sum(contratos_minima_cuantia_depto)) %>% arrange(desc(total))
+
+indicadores_gen %>% filter(departamento_entidad == "Antioquia") %>% dplyr::select( indba_total_contratos, contratos_minima_cuantia_depto) %>% arrange(desc(indba_total_contratos))
+
+```
+
+```{r}
+indicadores_bd_td %>% group_by(departamento_entidad) %>% summarise(total = n()) %>% arrange(desc(total))
+
+indicadores_bd_td %>% group_by(departamento_entidad) %>% summarise(total = sum(indba_contratos_minima_cuantia_dto)) %>% arrange(desc(total))
+
+indicadores_bd_td %>% filter(departamento_entidad == "Antioquia") %>% dplyr::select(nombre_entidad, indba_total_contratos, indba_contratos_minima_cuantia_dto) %>% arrange(desc(indba_total_contratos))
+
+```
+
+
 
 ### Municipios
 
@@ -1129,4 +1173,3 @@ indicadores_bd_td %>% mutate(
 indicadores_bd_td <- indicadores_bd_td %>% mutate(
   indba_prop_contr_finyr_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100)
 ```
-
