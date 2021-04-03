@@ -19,9 +19,9 @@ library(readxl)
 library(stringr)
 ```
 
-# Ajustes iniciales
+# 1. AJUTES INICIALES
 
-## Indicadores
+## 1.1. Indicadores
 
 Lectura de los datos iniciales de los indicadores
 
@@ -95,8 +95,17 @@ indicadores$depto_mun<-NULL
 indicadores<- unite(indicadores, depto_mun, c("departamento_entidad", "municipio_entidad"), sep = "-", remove = FALSE)
 ```
 
+# 2. UNIÓN TERRIDATA
 
-## Economía
+Se seleccionaron 4 categorías de indicadores dentro de la plataforma Terridata, esto debido a que según algunos estudios dichas categorías de indicadores puede tener relación con el fenómeno de la corrupción. Las categorías son:
+- Economía
+- Educación
+- Financiero
+- Salud
+
+## 2.1. Economía
+
+Se seleccionaron los indicadores de 2 subcategorías de las cuáles se tenían suficientes datos (PIB y ) y el Porcentaje del PIB por grandes ramas de actividad económica) y se cree que pueden tener una relación con el tema de estudio, esto de acuerdo a algunas investigaciones hechas por pares y publicadas en algunos artículos como: [Lista de artículos]
 
 Datos iniciales: base de datos completa, tal cual como está en Terridata.
 
@@ -135,19 +144,7 @@ economiatd<- unite(economiatd, depto_mun,
                    remove = FALSE)
 ```
 
-# Unión Terridata
-
-Se seleccionaron 4 categorías de indicadores dentro de la plataforma Terridata, esto debido a que según algunos estudios dichas categorías de indicadores puede tener relación con el fenómeno de la corrupción. Las categorías son:
-- Economía
-- Educación
-- Financiero
-- Salud
-
-## Economía
-
-Se seleccionaron los indicadores de 2 subcategorías de las cuáles se tenían suficientes datos (PIB y ) y el Porcentaje del PIB por grandes ramas de actividad económica) y se cree que pueden tener una relación con el tema de estudio, esto de acuerdo a algunas investigaciones hechas por pares y publicadas en algunos artículos como: [Lista de artículos]
-
-### Extraer datos
+### 2.1.1. Extraer datos
 
 Por departamentos
 
@@ -278,9 +275,9 @@ indicadores_bd_td <- indicadores_bd_td %>%
 ```
 
 
-### Procesamiento final economía unida
+### 2.1.2. Procesamiento final economía unida
 
-Ordenr el nombre de las columnas
+Ordenar el nombre de las columnas
 
 ```{r}
 nombres <- c("nombre_entidad", "nit_entidad" , "orden_entidad", 
@@ -314,11 +311,24 @@ Contar cuántos valores faltantes hay
 sapply(indicadores_bd_td, function(x) sum(is.na(x)))
 ```
 
-# Union externos
+## 2.2. Financiero
+
+Datos filtrados, es decir, este data set contiene solo las variables que se van a utilizar
+
+```{r}
+financiero_municipio <- read.csv("TD_ind_finpub_YG.csv", 
+                       header = TRUE, 
+                       encoding="UTF-8")
+
+# preguntar por este data set a Nicolás
+```
+
+
+# 3. UNIÓN EXTERNOS
 
 Aquí se unen añaden algunos indicadores que no se encontraron en Terridata ni en SECOP, sino que, en fuentes externas
 
-## MDM (Medición del Desempeño Municipal)
+## 3.1. MDM (Medición del Desempeño Municipal)
 
 ```{r}
 mdm <- read_excel("Resultados_2018_MDM.xlsx")
@@ -369,11 +379,11 @@ escribir base de datos
 write.csv(indicadores_bd_td, file = "indicadores_bd_td.csv", row.names = TRUE)
 ```
 
-## Mínima cuantía
+## 3.2. Mínima cuantía
 
 Hacer la tabla, los datos
 
-### Departamentos
+### 3.2.1. Departamentos
 
 ```{r}
 #departamentos
@@ -502,7 +512,7 @@ deptos <- deptos[deptos$departamento_ejecucion != "Colombia", ]
 # LISTO ESTO POR DEPARTAMENTOS
 ```
 
-### Municipios
+### 3.2.2. Municipios
 
 Datos
 
@@ -629,7 +639,7 @@ municipios <- municipios %>%
 sapply(municipios, function(x) sum(is.na(x)))
 ```
 
-### Entidades hospitales
+### 3.2.3. Entidades hospitales
 
 ```{r}
 total_contratos <- SECOP_I %>% 
@@ -756,7 +766,7 @@ hospitales <- hospitales %>%
 # LISTO ESTO POR HOSPITALES
 ```
 
-### Unir los indicadores por departamentos y municipios a los hospitales (entidades)
+### 3.2.4. Unir los indicadores por departamentos y municipios a los hospitales (entidades)
 
 ```{r}
 #modificar nombres de columnas de cada taba
@@ -797,11 +807,11 @@ write.csv(entidades, file = "entidades.csv", row.names = TRUE)
 ```
 
 
-## Cercanos a fin de año
+## 3.3. Cercanos a fin de año
 
 Extraer los datos
 
-### Departamentos
+### 3.3.1. Departamentos
 
 ```{r}
 deptos_finyr <- merge(SECOP_I %>%
@@ -837,7 +847,7 @@ deptos_finyr <- deptos_finyr %>%
                                                      (indba_contr_finyr_directa_dto / indba_contr_finyr_dto)*100)))
 ```
 
-### Hospitales
+### 3.3.2. Hospitales
 
 No se calcula por municipios debido a la falta de datos, por lo que casi siempre los datos para los municipios son los mismos que para los hospitales
 
@@ -883,7 +893,7 @@ hospitales_finyr <- merge(hospitales_finyr,
   dplyr::select(-departamento_entidad)
 ```
 
-### Intentar merge de entidades (hospitales) con indicadores_bd_td y luego con hospitales_finyr
+### 3.3.3. Intentar merge de entidades (hospitales) con indicadores_bd_td y luego con hospitales_finyr
 
 Entre entidades e indicadores_bd_td
 
@@ -915,7 +925,7 @@ indicadores_bd_td <- merge(indicadores_bd_td,
                            all.x = TRUE)
 ```
 
-Ajustar los NAs
+### 3.3.4. Ajustar los NAs
 
 ```{r}
 indicadores_bd_td <- data.frame(sapply(indicadores_bd_td, cambio_na))
@@ -930,6 +940,8 @@ sum(sapply(indicadores_bd_td, is.numeric))
 
 sapply(indicadores_bd_td, function(x) sum(is.na(x)))
 ```
+
+### 3.3.5. Propocion fin de año por hospital
 
 Teniendo la cantidad de contratos a fin de año se puede calcular la proporción que los contratos a fin de año representan en la totalidad del año
 
@@ -950,7 +962,7 @@ write.csv(indicadores_bd_td, file = "indicadores_bd_td.csv", row.names = TRUE)
 ```
 
 
-## Supersalud
+## 3.4. Supersalud
 
 Leer los datos
 
@@ -959,7 +971,7 @@ supersalud <- read_excel("supersalud_indicadores.xlsx")
 supersalud <- as.data.table(supersalud)
 ```
 
-### Ajsutes supersalud
+### 3.4.1. Ajsutes supersalud
 
 Corrección de algunos datos
 
@@ -1002,7 +1014,7 @@ supersalud$Entidad  <- gsub("[.]", "", supersalud$Entidad )
 supersalud$NIT <- as.character(supersalud$NIT)
 ```
 
-### Ajustes indicadores_db_td
+### 3.4.2. Ajustes indicadores_db_td
 
 Ajuste de algunas variables
 
@@ -1057,7 +1069,7 @@ indicadores_bd_td[Hospital == "HOSPITAL SERAFIN MONTAÑA CUELLAR DE SAN LUIS", n
 indicadores_bd_td[Hospital == "IPS CENTRO DE SALUD DE ENCINO", nit_entidad := "804015007"]
 ```
 
-Hacer el merge
+### 3.4.3. Hacer el merge
 
 ```{r}
 indicadores_bd_td <- merge(x = indicadores_bd_td,
@@ -1071,7 +1083,7 @@ indicadores_bd_td <- merge(x = indicadores_bd_td,
          "supers_ind10_oportunidad_entrega_reporte_info_hos" = "Indicador10: Oportunidad en la entrega del reporte de información en Cumplimiento de la Circular Única o norma que la sustituya.")
 ```
 
-Ajuste de los NAs
+### 3.4.4. Ajuste de los NAs
 
 ```{r}
 # Bien porque si no tiene información es como si no cumpliera
