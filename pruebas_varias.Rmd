@@ -1173,3 +1173,30 @@ indicadores_bd_td %>% mutate(
 indicadores_bd_td <- indicadores_bd_td %>% mutate(
   indba_prop_contr_finyr_total_hos = (indba_contr_finyr_hos / indba_total_contratos )*100)
 ```
+
+# 2.2. Financiero
+
+Datos filtrados, es decir, este data set contiene solo las variables que se van a utilizar
+
+```{r}
+financiero_municipio <- read.csv("TD_ind_finpub_YG.csv", 
+                       header = TRUE, 
+                       encoding="UTF-8")
+```
+
+
+```{r}
+sapply(financiero_municipio, function(x) sum(is.na(x)))
+
+financiero_municipio %>% na.omit() %>% count(codigo_entidad) %>% arrange(desc(n))
+```
+
+```{r}
+financiero_municipio %>% dplyr::select(codigo_entidad, Indicador.de.desempeño.fiscal ) %>% na.omit() %>% count(codigo_entidad) %>% arrange(desc(n))
+
+financiero_municipio %>% na.omit(Indicador.de.desempeño.fiscal) %>% count(codigo_entidad) %>% arrange(desc(n))
+
+financiero_municipio %>% na.omit(financiero_municipio$Número.total.de.proyectos) %>% count(codigo_entidad) %>% arrange(desc(n))
+
+financiero_municipio %>% na.omit(financiero_municipio$Valor.del.número.total.de.proyectos) %>% count(codigo_entidad) %>% arrange(desc(n))
+```

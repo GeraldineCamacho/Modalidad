@@ -319,8 +319,6 @@ Datos filtrados, es decir, este data set contiene solo las variables que se van 
 financiero_municipio <- read.csv("TD_ind_finpub_YG.csv", 
                        header = TRUE, 
                        encoding="UTF-8")
-
-# preguntar por este data set a Nicolás
 ```
 
 
