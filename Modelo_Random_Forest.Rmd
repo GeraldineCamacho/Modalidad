@@ -283,6 +283,8 @@ Lectura de los datos
 
 indicadores_clas <- indicadores_bd_td
 head(indicadores_clas)
+
+DEJAR TODOS LOS INDICADORES FINANCIEROS !!!
 ```
 
 Columnas que no se tienen en cuenta
@@ -595,11 +597,6 @@ separate(data = importantes_clas,
     theme(plot.title = element_text(hjust = 0.5))
     
 ```
-
-Con variable indba_prop_contr_finyr_total_hos el
-ACC bajo de 0,671 a 0,666
-ROC subió de 0,736 a 0,748
-GINI bajó de 0,2589 a 0,2579
 
 ver si hay nas
 
