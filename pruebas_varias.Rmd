@@ -1184,6 +1184,24 @@ financiero_municipio <- read.csv("TD_ind_finpub_YG.csv",
                        encoding="UTF-8")
 ```
 
+Renombras las columnas
+
+```{r}
+financiero_municipio <- financiero_municipio %>% rename(
+  "inf_financiamiento" = "Financiamiento",
+  "inf_ind_desemp_fiscal" = "Indicador.de.desempeño.fiscal",
+  "inf_ingresos_totales" = "Ingresos.totales",
+  "inf_cantidad_proyectos" = "Número.total.de.proyectos",
+  "inf_ppa_educacion" = "ppa...Educación",
+  "inf_ppa_salud" = "ppa...Salud",
+  "inf_regalias_percapita_valor_efec_girado" = "Regalías.per.cápita..Valor.efectivamente.girado.al.municipio.",
+  "inf_valor_proyectos" = "Valor.del.número.total.de.proyectos",
+  "inf_igpr" = "Índice.de.gestión.de.proyectos.de.regalías..IGPR."
+)
+
+# "Índice.de.gestión.de.proyectos.de.regalías..IGPR."
+```
+
 
 ```{r}
 sapply(financiero_municipio, function(x) sum(is.na(x)))
@@ -1192,11 +1210,20 @@ financiero_municipio %>% na.omit() %>% count(codigo_entidad) %>% arrange(desc(n)
 ```
 
 ```{r}
-financiero_municipio %>% dplyr::select(codigo_entidad, Indicador.de.desempeño.fiscal ) %>% na.omit() %>% count(codigo_entidad) %>% arrange(desc(n))
+# de ete sí se eliminan los na
+financiero_municipio[!is.na(financiero_municipio$Indicador.de.desempeño.fiscal), ] 
 
-financiero_municipio %>% na.omit(Indicador.de.desempeño.fiscal) %>% count(codigo_entidad) %>% arrange(desc(n))
+# de ete sí se eliminan los na
+financiero_municipio[!is.na(financiero_municipio$Número.total.de.proyectos), ] %>% count(codigo_entidad) %>% arrange(desc(n))
 
-financiero_municipio %>% na.omit(financiero_municipio$Número.total.de.proyectos) %>% count(codigo_entidad) %>% arrange(desc(n))
+# se elimina esta columna
+financiero_municipio[!is.na(financiero_municipio$Valor.del.número.total.de.proyectos), ] %>% count(codigo_entidad) %>% arrange(desc(n))
 
-financiero_municipio %>% na.omit(financiero_municipio$Valor.del.número.total.de.proyectos) %>% count(codigo_entidad) %>% arrange(desc(n))
+# de ete sí se eliminan los na
+financiero_municipio[!is.na(financiero_municipio$Indicador.de.desempeño.fiscal), ] %>% count(codigo_entidad) %>% arrange(desc(n))
+
+# ver cuántos datos hay eliminando los NAS de las columnas seleccionadas
+financiero_municipio[!is.na(c(financiero_municipio$Indicador.de.desempeño.fiscal,
+                            financiero_municipio$Número.total.de.proyectos,
+                            financiero_municipio$Indicador.de.desempeño.fiscal)), ] %>% count(codigo_entidad) %>% arrange(desc(n))
 ```
