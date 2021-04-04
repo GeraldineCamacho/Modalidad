@@ -1203,11 +1203,106 @@ financiero_municipio <- financiero_municipio %>% rename(
 ```
 
 
+Ver cuántos NAs hay por cada columna
+
 ```{r}
-sapply(financiero_municipio, function(x) sum(is.na(x)))
+# Porcentaje de NAs con sapply
+sapply(financiero_municipio, function(x) mean(is.na(x)))
+
+# Porcentaje de NAs con apply
+apply(is.na(financiero_municipio), 2, mean)
+
+# Función para la Cantidad y porcentaje de NAs por culumna con apply
+cantyprop_nas <- function(x){
+  cant <- sum(x)
+  prop <- mean(x)*100
+  return(c(cant, prop))
+}
+
+# Aplicar por columna
+apply(is.na(financiero_municipio), 2, cantyprop_nas)
+```
+
+Eliminar la columna que tiene demasiados NAs (inf_valor_proyectos)
+
+```{r}
+financiero_municipio$inf_valor_proyectos <- NULL
+financiero_municipio$inf_cantidad_proyectos <- NULL
 
 financiero_municipio %>% na.omit() %>% count(codigo_entidad) %>% arrange(desc(n))
 ```
+Crear las columnas como las necesito: que contenga el nombre del indicador, el año el indicador y si es de municipio o de departamento.
+
+```{r}
+financiero_municipio <- financiero_municipio %>% 
+  pivot_longer(cols = !c(codigo_entidad, anno), names_to = "indicador", values_to = "valor") %>%
+  unite(indicador_year, "indicador", "anno", sep = "_") %>% 
+  na.omit()
+```
+
+Agregar el indicativo de que el indicador es para el municipio
+
+```{r}
+financiero_municipio$indicador_year <- str_c(financiero_municipio$indicador_year, "mun", sep = "_")
+
+head(financiero_municipio)
+```
+
+Pasar los indicadores a columnas de nuevo
+
+```{r}
+financiero_municipio <- financiero_municipio %>% 
+  pivot_wider(names_from = indicador_year, values_from = valor)
+```
+
+Ver de nuevo la cantidad de nas
+
+```{r}
+# Aplicar por columna
+apply(is.na(financiero_municipio), 2, cantyprop_nas)
+```
+
+Eliminar la cantidad de proyectos faltante superior al 40%
+
+```{r}
+#financiero_municipio$inf_cantidad_proyectos_2014_mun <- NULL
+#financiero_municipio$inf_cantidad_proyectos_2015_mun <- NULL
+```
+
+Hacer el merge con los indicaodres_bd_td
+
+```{r}
+#financiero_municipio$codigo_entidad <- as.character(financiero_municipio$codigo_entidad)
+indicadores_bd_td <- merge(indicadores_bd_td,
+                           financiero_municipio,
+                           by.x = "cod_entidad",
+                           by.y = "codigo_entidad", 
+                           all.x = TRUE)
+```
+
+ver los NAs
+
+```{r}
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
+```
+
+
+Reemplazar los nas por la media de su columna
+
+```{r}
+indicadores_bd_td <-as.data.frame(indicadores_bd_td)
+# cuáles columnas son numéricas
+columnas_numericas <- which(sapply(indicadores_bd_td, is.numeric))
+cols_mean <- rep(NA, ncol(indicadores_bd_td))
+cols_mean[columnas_numericas] <- colMeans(indicadores_bd_td[, columnas_numericas], na.rm = TRUE)
+
+# reemplaar los NA
+for (x in columnas_numericas) {
+  indicadores_bd_td[is.na(indicadores_bd_td[,x]), x] <- cols_mean[x]
+}
+```
+
+Random
 
 ```{r}
 # de ete sí se eliminan los na
