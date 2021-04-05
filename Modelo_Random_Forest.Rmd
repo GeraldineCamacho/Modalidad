@@ -284,7 +284,7 @@ Lectura de los datos
 indicadores_clas <- indicadores_bd_td
 head(indicadores_clas)
 
-DEJAR TODOS LOS INDICADORES FINANCIEROS !!!
+#DEJAR TODOS LOS INDICADORES FINANCIEROS !!!
 ```
 
 Columnas que no se tienen en cuenta
@@ -330,10 +330,10 @@ Eliminar columnas que no son necesarias
 #indicadores_clas$nombre_entidad <- NULL
 
 # eliminar supersalud que no sé manejar jeje
-indicadores_clas$supers_ind2_efectividad_en_auditoria_hos <- NULL
-indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info_hos <- NULL
+#indicadores_clas$supers_ind2_efectividad_en_auditoria_hos <- NULL
+#indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info_hos <- NULL
 
-indicadores_clas$indba_prop_contr_finyr_total_hos <- NULL
+#indicadores_clas$indba_prop_contr_finyr_total_hos <- NULL
 
 #eliminar otros indicadores de supersalud que no yudaron
 #indicadores_clas$supers_perc_pacientes_hipertension <- NULL

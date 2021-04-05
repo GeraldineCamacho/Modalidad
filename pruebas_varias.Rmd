@@ -1226,8 +1226,8 @@ apply(is.na(financiero_municipio), 2, cantyprop_nas)
 Eliminar la columna que tiene demasiados NAs (inf_valor_proyectos)
 
 ```{r}
-financiero_municipio$inf_valor_proyectos <- NULL
-financiero_municipio$inf_cantidad_proyectos <- NULL
+#financiero_municipio$inf_valor_proyectos <- NULL
+#financiero_municipio$inf_cantidad_proyectos <- NULL
 
 financiero_municipio %>% na.omit() %>% count(codigo_entidad) %>% arrange(desc(n))
 ```
@@ -1265,14 +1265,18 @@ apply(is.na(financiero_municipio), 2, cantyprop_nas)
 Eliminar la cantidad de proyectos faltante superior al 40%
 
 ```{r}
-#financiero_municipio$inf_cantidad_proyectos_2014_mun <- NULL
+financiero_municipio$inf_cantidad_proyectos_2014_mun <- NULL
 #financiero_municipio$inf_cantidad_proyectos_2015_mun <- NULL
+financiero_municipio$inf_valor_proyectos_2017_mun <- NULL
+financiero_municipio$inf_valor_proyectos_2014_mun <- NULL
+financiero_municipio$inf_valor_proyectos_2016_mun <- NULL
 ```
 
 Hacer el merge con los indicaodres_bd_td
 
 ```{r}
 #financiero_municipio$codigo_entidad <- as.character(financiero_municipio$codigo_entidad)
+#indicadores_bd_td <- indicadores_bd_td[, 1:113]
 indicadores_bd_td <- merge(indicadores_bd_td,
                            financiero_municipio,
                            by.x = "cod_entidad",
@@ -1300,6 +1304,9 @@ cols_mean[columnas_numericas] <- colMeans(indicadores_bd_td[, columnas_numericas
 for (x in columnas_numericas) {
   indicadores_bd_td[is.na(indicadores_bd_td[,x]), x] <- cols_mean[x]
 }
+
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
+
 ```
 
 Random
