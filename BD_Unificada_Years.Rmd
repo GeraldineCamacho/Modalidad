@@ -181,7 +181,7 @@ economia_depto$indicador_annio <- gsub(",", "", economia_depto$indicador_annio)
 Agregar el indicativo del indicador de economía
 
 ```{r}
-economia_depto$indicador_annio <- str_c("inec", economia_depto$indicador_annio, sep = "_")
+economia_depto$indicador_annio <- str_c("inec", economia_depto$indicador_annio, "dto", sep = "_")
 ```
 
 Pasar las filas de indicador a columnas
@@ -246,7 +246,7 @@ economia_municipio$indicador_annio <- gsub(",", "", economia_municipio$indicador
 Agregar el indicativo del indicador de economía
 
 ```{r}
-economia_municipio$indicador_annio <- str_c("inec", economia_municipio$indicador_annio, sep = "_")
+economia_municipio$indicador_annio <- str_c("inec", economia_municipio$indicador_annio,"mun", sep = "_")
 ```
 
 Pasar las filas de indicador a columnas
@@ -1229,4 +1229,21 @@ indicadores_bd_td$supers_ind2_efectividad_en_auditoria_hos <- as.numeric(indicad
 head(indicadores_bd_td)
 ```
 
+Ver si hay datos faltantes
+
+```{r}
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
+```
+
+Escribir el .csv
+
+```{r}
+write.csv(indicadores_bd_td, file = "indicadores_bd_td.csv", row.names = TRUE)
+```
+
+## 3.5. Reserva
+
+```{r}
+indicadores_reserva <- indicadores_bd_td
+```
 
