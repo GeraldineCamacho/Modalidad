@@ -598,6 +598,42 @@ separate(data = importantes_clas,
     
 ```
 
+Seleccionar si es por hospital, municipio o departamento
+
+```{r}
+#str_extract_all(importantes_clas$variable, "dto, mun, hos", simplify = FALSE, boundary("word"))
+importantes_clas$fin <- str_sub(importantes_clas$variable, -3, -1)
+```
+
+Seleccionar
+
+```{r}
+# Suma total
+importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+  group_by(fin) %>% 
+  summarise(total = sum(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = reorder(fin, total), y = total), stat = "identity") +
+      coord_flip() +
+      labs(x = "Nivel del indicador",
+           y = "Importancia",
+           title = "Importancia total de los niveles")+
+      theme(plot.title = element_text(hjust = 0.5))
+
+# Suma media
+importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+  group_by(fin) %>% 
+  summarise(total = mean(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = reorder(fin, total), y = total), stat = "identity") +
+      coord_flip() +
+      labs(x = "Nivel del indicador",
+           y = "Importancia",
+           title = "Importancia media de los niveles")+
+      theme(plot.title = element_text(hjust = 0.5))
+```
+
+
 ver si hay nas
 
 ```{r}
