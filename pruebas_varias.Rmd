@@ -1447,3 +1447,22 @@ apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
 ```
 
 
+## Intentar con toooooodas las columas
+
+```{r}
+# indicadores_bd_td <- indicadores_reserva
+
+names(indicadores_BD)
+
+names(indicadores_BD[,c(1, 2, 4:28, 71:78, 193:198)])
+
+indicadores_bd_td <- merge(indicadores_bd_td,
+                           indicadores_BD %>%
+                             dplyr::select(-all_of(
+                               names(indicadores_BD[,c(1, 2, 4:28, 71:78, 193:198)]))),
+                           by = "nombre_entidad")
+
+
+ 
+```
+
