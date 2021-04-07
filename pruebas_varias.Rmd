@@ -1329,3 +1329,121 @@ financiero_municipio[!is.na(c(financiero_municipio$Indicador.de.desempeño.fisca
                             financiero_municipio$Número.total.de.proyectos,
                             financiero_municipio$Indicador.de.desempeño.fiscal)), ] %>% count(codigo_entidad) %>% arrange(desc(n))
 ```
+
+
+## 2.3. Educación
+
+Leer los datos
+
+```{r}
+educacion_municipio <- read.csv("ind_anual_educacion.csv")
+```
+
+Renombras las columnas
+
+```{r}
+educacion_municipio <- educacion_municipio %>% rename(
+  "ine_cobertura_neta" = "ine_coberturaNeta",
+  "ine_tasa_desercion" = "ine_tasaDesercion",
+  "ine_tasa_repitencia" = "ine_tasaRepitencia",
+  "ine_tasa_analfabetismo" = "ine_tasaAnalfabetismo",
+  "ine_porcentaje_asistencia" = "ine_porcentajeAsistencia",
+  "ine_prueba_matematicas" = "ine_pruebaLecturaMatematicas",
+  "ine_prueba_lectura_critica" = "ine_pruebaLecturaCritica"
+)
+```
+
+Ver cuántos NAs hay por cada columna
+
+```{r}
+# Función para la Cantidad y porcentaje de NAs por culumna con apply
+cantyprop_nas <- function(x){
+  cant <- sum(x)
+  prop <- mean(x)*100
+  return(c(cant, prop))
+}
+
+# Aplicar por columna
+apply(is.na(educacion_municipio), 2, cantyprop_nas)
+```
+
+ver cuántos datos qudan eliminando los nas
+
+```{r}
+educacion_municipio %>% na.omit() %>% count(codigo_entidad) %>% arrange(desc(n))
+```
+
+Crear las columnas como las necesito: que contenga el nombre del indicador, el año el indicador y si es de municipio o de departamento.
+
+```{r}
+educacion_municipio <- educacion_municipio %>% 
+  pivot_longer(cols = !c(codigo_entidad, anno), names_to = "indicador", values_to = "valor") %>%
+  unite(indicador_year, "indicador", "anno", sep = "_") %>% 
+  na.omit()
+```
+
+Agregar el indicativo de que el indicador es para el municipio
+
+```{r}
+educacion_municipio$indicador_year <- str_c(educacion_municipio$indicador_year, "mun", sep = "_")
+
+head(educacion_municipio)
+```
+
+Pasar los indicadores a columnas de nuevo
+
+```{r}
+educacion_municipio <- educacion_municipio %>% 
+  pivot_wider(names_from = indicador_year, values_from = valor)
+```
+
+Ver de nuevo la cantidad de nas
+
+```{r}
+# Aplicar por columna
+apply(is.na(educacion_municipio), 2, cantyprop_nas)
+```
+
+Eliminar la cantidad de proyectos faltante superior al 40%
+
+```{r}
+# Ninguno
+```
+
+Hacer el merge con los indicaodres_bd_td
+
+```{r}
+#educacion_municipio$codigo_entidad <- as.character(educacion_municipio$codigo_entidad)
+indicadores_bd_td <- merge(indicadores_bd_td,
+                           educacion_municipio,
+                           by.x = "cod_entidad",
+                           by.y = "codigo_entidad", 
+                           all.x = TRUE)
+```
+
+ver los NAs
+
+```{r}
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
+```
+
+
+Reemplazar los nas por la media de su columna
+
+```{r}
+indicadores_bd_td <-as.data.frame(indicadores_bd_td)
+# cuáles columnas son numéricas
+columnas_numericas <- which(sapply(indicadores_bd_td, is.numeric))
+cols_mean <- rep(NA, ncol(indicadores_bd_td))
+cols_mean[columnas_numericas] <- colMeans(indicadores_bd_td[, columnas_numericas], na.rm = TRUE)
+
+# reemplaar los NA
+for (x in columnas_numericas) {
+  indicadores_bd_td[is.na(indicadores_bd_td[,x]), x] <- cols_mean[x]
+}
+
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
+
+```
+
+
