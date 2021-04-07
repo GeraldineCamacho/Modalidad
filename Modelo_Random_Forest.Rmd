@@ -280,7 +280,7 @@ cor.test(predicciones$perc_contr_directa_num, predicciones$.pred)
 Lectura de los datos
 ```{r}
 #indicadores_clas <- read.csv("indicadores_BD.csv")
-
+#indicadores_bd_td <- indicadores_reserva
 indicadores_clas <- indicadores_bd_td
 head(indicadores_clas)
 
