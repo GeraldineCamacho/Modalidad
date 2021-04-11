@@ -442,7 +442,7 @@ indicadores_clas <- indicadores_clas %>%
 ```{r}
 # Feature Selection
 set.seed(111)
-boruta <- Boruta(riesgo ~ ., data = indicadores_clas, doTrace = 2, maxRuns = 500)
+boruta <- Boruta(riesgo ~ ., data = indicadores_clas, doTrace = 2, maxRuns = 1000)
 print(boruta)
 plot(boruta, las = 2, cex.axis = 0.7)
 plotImpHistory(boruta)
@@ -472,7 +472,7 @@ Definir las tareas de preprocesamiento
 - Normalizar las variables numéricas
 -  Crear variables dummyes con las variables categóricas
 ```{r}
-indicadores_clas_rec <- recipe(confirmed, data = indicadores_clas) %>% 
+indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
