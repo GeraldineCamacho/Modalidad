@@ -476,9 +476,11 @@ indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>%
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
-  step_zv(all_numeric()) 
-#%>%
-#  step_smote(riesgo)
+  step_zv(all_numeric()) %>%
+  step_smote(riesgo)
+
+
+prop.table(table(indicadores_clas$riesgo))
 
 indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 ```
@@ -488,8 +490,7 @@ indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 Se configura un modelo con los parametros que trae la función por defecto.
 ```{r}
 rf_model_clas <-  rand_forest() %>% 
-  set_engine("ranger",
-             importance = "impurity") %>% 
+  set_engine("ranger",importance = "impurity") %>% 
   set_mode("classification") 
 ```
 
@@ -507,6 +508,7 @@ rf_val_clas <- rf_workflow_clas %>%
 
 rf_val_clas %>% collect_predictions()
 ```
+
 ## Matriz de confusion
 ```{r}
 rf_val_clas %>% collect_predictions() %>% conf_mat(riesgo, .pred_class)
@@ -566,6 +568,15 @@ rf_val_clas %>% collect_predictions() %>%
 rf_final_model_clas <- fit(rf_workflow_clas, training(indicadores_clas_split))
 rf_final_model_clas
 ```
+
+
+testing
+
+```{r}
+rf_final_model_clas_test <- fit(rf_workflow_clas, testing(indicadores_clas_split))
+rf_final_model_clas_test
+```
+
 
 ## variables de mayor importancia
 ```{r}
