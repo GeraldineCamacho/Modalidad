@@ -377,7 +377,7 @@ indicadores_clas <- indicadores_clas %>%
 
 #crear los rangos
 indicadores_clas <- indicadores_clas %>% 
-  mutate(riesgo = case_when(indba_perc_cdirec_num <= 25 ~ "Bajo o Moderado",
+  mutate(riesgo = case_when(indba_perc_cdirec_num <= 25 ~ "Bajo o moderado",
                             indba_perc_cdirec_num <= 55 ~ "Medio",
                             TRUE ~ "Alto"))
 
@@ -490,7 +490,7 @@ indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 Se configura un modelo con los parametros que trae la función por defecto.
 ```{r}
 rf_model_clas <-  rand_forest() %>% 
-  set_engine("ranger",importance = "impurity") %>% 
+  set_engine("ranger", importance = "impurity") %>% 
   set_mode("classification") 
 ```
 
@@ -517,7 +517,8 @@ rf_val_clas %>% collect_predictions() %>% conf_mat(riesgo, .pred_class)
 Algunas métricas a partir de la matriz de confusión y otra información de la predicción.
 
 - accuracy: indica en que proporción se predicen bien las dos clases.
-- Sensitivity: indica que proporción de las predicciones positivas son correctas, con respecto al total de clases reales positivas. Specificity: indica que proporción de las predicciones negativas son correctas, con respecto al total de clases reales negativas.
+- Sensitivity: indica que proporción de las predicciones positivas son correctas, con respecto al total de clases reales positivas.
+- Specificity: indica que proporción de las predicciones negativas son correctas, con respecto al total de clases reales negativas.
 - Positive predictive: indica que proporción de las predicciones positivas son correctas, con respecto al total de predicciones.
 - Negative predictive: indica que proporción de las prediccion negativas son correctas, con respecto al total de predicciones.
 
@@ -535,11 +536,13 @@ rf_val_clas %>% collect_predictions() %>% sensitivity(riesgo, .pred_class)
 # Especificidad
 rf_val_clas %>% collect_predictions() %>% specificity(riesgo, .pred_class)
 ```
+
 positiva
 ```{r}
 # Predicción positiva
 rf_val_clas %>% collect_predictions() %>% ppv(riesgo, .pred_class)
 ```
+
 negativa
 ```{r}
 # Predicción negativa
