@@ -482,7 +482,7 @@ cantyprop_nas <- function(x){
 apply(is.na(educacion_municipio), 2, cantyprop_nas)
 ```
 
-ver cuántos datos qudan eliminando los nas
+ver cuántos datos quedan eliminando los nas
 
 ```{r}
 educacion_municipio %>% na.omit() %>% count(codigo_entidad) %>% arrange(desc(n))
@@ -561,6 +561,90 @@ apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
 
 ```
 
+## 2.4. Salud
+
+### 2.4.1. Ajustes iniciales
+
+Leer los datos
+
+```{r}
+salud_municipio <- read.csv("salud_global_indicadores_years.csv")
+salud_municipio$cod_departamento <- as.character(salud_municipio$cod_departamento)
+salud_municipio$cod_entidad <- as.character(salud_municipio$cod_entidad)
+salud_municipio <- salud_municipio %>% dplyr::select(-c(cod_departamento, depto_mun, departamento))
+head(salud_municipio)
+```
+
+
+Cambiar en el nombre lo que es incec_ por ins_
+
+```{r}
+salud_municipio <- salud_municipio %>% 
+  pivot_longer(cols = !(cod_entidad), names_to = "indicador", values_to = "valor")
+
+salud_municipio$indicador <- gsub("inec_", "ins_", salud_municipio$indicador)
+
+salud_municipio <- salud_municipio %>% 
+  pivot_wider(names_from = indicador, values_from = valor)
+
+head(salud_municipio)
+```
+
+Ver la cantidad de nas
+
+```{r}
+# Aplicar por columna
+apply(is.na(salud_municipio), 2, cantyprop_nas)
+```
+
+### 2.4.2. Hacer el merge con los indicaodres_bd_td
+
+```{r}
+#educacion_municipio$codigo_entidad <- as.character(educacion_municipio$codigo_entidad)
+indicadores_bd_td <- merge(indicadores_bd_td,
+                           salud_municipio,
+                           by = "cod_entidad",
+                           all.x = TRUE)
+```
+
+Ver de nuevo la cantidad de nas
+
+```{r}
+# Aplicar por columna
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
+```
+
+Eliminación de las variables con NAs mayor al 40%
+
+```{r}
+indicadores_bd_td <- indicadores_bd_td %>% 
+  dplyr::select(-c("ins_razon_de_mortalidad_materna_a_42_dias_2014_mun",
+  "ins_razon_de_mortalidad_materna_a_42_dias_2015_mun",
+  "ins_razon_de_mortalidad_materna_a_42_dias_2016_mun",
+  "ins_razon_de_mortalidad_materna_a_42_dias_2017_mun",
+  "ins_cobertura_de_vacunacion_dpt_2017_mun",
+  "ins_cobertuna_de_vacunacion_triple_viral_2017_mun",
+  "ins_cobertura_del_regimen_subsidiado_2014_dto",
+  "ins_cobertura_del_regimen_subsidiado_2015_dto"))
+```
+
+### 2.4.3. Reemplazar los NAs con la medi de la columna
+
+```{r}
+indicadores_bd_td <-as.data.frame(indicadores_bd_td)
+# cuáles columnas son numéricas
+columnas_numericas <- which(sapply(indicadores_bd_td, is.numeric))
+cols_mean <- rep(NA, ncol(indicadores_bd_td))
+cols_mean[columnas_numericas] <- colMeans(indicadores_bd_td[, columnas_numericas], na.rm = TRUE)
+
+# reemplaar los NA
+for (x in columnas_numericas) {
+  indicadores_bd_td[is.na(indicadores_bd_td[,x]), x] <- cols_mean[x]
+}
+
+#apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
+#sum(is.na(indicadores_bd_td))
+```
 
 # 3. UNIÓN EXTERNOS
 
