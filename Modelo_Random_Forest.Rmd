@@ -442,7 +442,7 @@ indicadores_clas <- indicadores_clas %>%
 ```{r}
 # Feature Selection
 set.seed(111)
-boruta <- Boruta(riesgo ~ ., data = indicadores_clas, doTrace = 2, maxRuns = 1000)
+boruta <- Boruta(riesgo ~ ., data = indicadores_clas, doTrace = 2, maxRuns = 500)
 print(boruta)
 plot(boruta, las = 2, cex.axis = 0.7)
 plotImpHistory(boruta)
@@ -476,8 +476,8 @@ indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>%
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
-  step_zv(all_numeric()) %>%
-  step_smote(riesgo)
+  step_zv(all_numeric()) #%>%
+#  step_smote(riesgo)
 
 
 prop.table(table(indicadores_clas$riesgo))
