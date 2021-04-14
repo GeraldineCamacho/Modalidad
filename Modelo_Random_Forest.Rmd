@@ -463,23 +463,12 @@ indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>%
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
-  step_zv(all_numeric()) %>% #creates a specification of a recipe step that will remove variables that contain only a single value.
- step_smote(riesgo)
-
-indicadores_clas_prep <- prep(indicadores_clas_rec)
-juiced <- juice(indicadores_clas_prep)
+  step_zv(all_numeric()) #%>% #creates a specification of a recipe step that will remove variables that contain only a single value.
+# step_smote(riesgo)
 
 prop.table(table(indicadores_clas$riesgo))
 
 indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
-```
-
-El objeto indicadores_clas_rec se puede aplicar a otros objetos, pero para ello hay que prepararlo para que aprenda las instrucciones del recipe()
-
-```{r}
-indicadores_clas_train_prep <- indicadores_clas_rec %>% 
-  prep() %>% 
-  juice()
 ```
 
 
@@ -497,7 +486,7 @@ rf_model_clas <-  rand_forest(mtry = tune(),
 ## Definir el workflow
 
 ```{r}
-rf_workflow_clas <- workflow() %>% 
+rf_workflow_clasific <- workflow() %>% 
   add_recipe(indicadores_clas_rec) %>% 
   add_model(rf_model_clas)
 ```
@@ -527,7 +516,7 @@ clas_metrics <- metric_set(roc_auc, accuracy)
 doParallel::registerDoParallel()
 set.seed(467)
 
-clas_tune <- rf_model_clas %>% 
+clas_tune <- rf_workflow_clasific %>% 
   tune_grid(resamples = rf_folds,
             grid = rf_grid,
             metrics = clas_metrics)
@@ -535,92 +524,33 @@ clas_tune <- rf_model_clas %>%
 clas_tune
 ```
 
+## Escoger los mejores parámetros
 
-## Calibración de parámetros
-
-Para calibrar los parametros se utiliza el metodo de validación cruzada. Este procedimiento tiene como proposito encontrar los parametros optimos del modelo o algoritmo.
 ```{r}
-# creación de los folds
-set.seed(245)
-rf_folds <- vfold_cv(indicadores_clas_train)
-
-clas_metrics <- metric_set(roc_auc, accuracy)
-
-rf_folds
+rf_best_auc <- select_best(clas_tune, metric = "roc_auc")
+rf_best_auc
 ```
 
-Ahora se configuran las metricas que se utilizarán para calibrar los parametros del modelo en la validación cruzada. Primero se define la grilla de valores para los parametros del modelo.
-```{r}
-rf_gird_reg <- expand.grid(mtry = c(3, 4, 5, 7),
-                           trees = c(100, 300, 500))
+Finalizar el workflow con las metricas (parámetros) tuneados
 
+```{r}
+rf_final_model_clas <- finalize_model(rf_model_clas, rf_best_auc)
+rf_final_model_clas
 ```
 
-Ahora se corre un modelo de random forest para cada una de estas condiciones.
-```{r}
-rf_tune_results_reg <- rf_workflow_reg %>% 
-  tune_grid(resamples = indicadores_gen_cv,
-            grid = rf_gird_reg,
-            metrics = metric_set(rmse, mae))
-
-clas_tune <- rf_model_clas %>% 
-  tune_grid(resamples = rf_folds,
-            grid = 20,
-            metrics = clas_metrics)
-
-#rf_tune_results_reg
-```
-
-A continuación se presenta la tabla que contiene el valor de las metricas para valor de los parametros y de acuerdo a cada metrica.
-```{r}
-# print results
-rf_metrics_reg <- rf_tune_results_reg %>% 
-  collect_metrics()
-
-rf_metrics_reg
-
-rf_metrics_clas <- clas_tune %>% collect_metrics()
-
-rf_metrics_clas
-```
-
-A continuación se presentan un conjunto de gráfica que permiten analizar el comportamiento de las métricas para cada uno de los paramétros del modelo.
-```{r}
-rf_metrics_clas %>% 
-  filter(.metric == "roc_auc") %>% 
-  ggplot(aes(mtry, mean, col = factor(trees))) +
-  geom_line(alpha = 0.5, size = 1) +
-  ggtitle("RMSE en función del mtry y el número de árboles")
-```
-
-grafico2
-```{r}
-rf_metrics_clas %>% 
-  filter(.metric == "accuracy") %>% 
-  ggplot(aes(mtry, mean, col = factor(trees))) +
-  geom_line(alpha = 0.5, size = 1) +
-  ggtitle("RMSE en función del mtry y el número de árboles")
-```
-
-A continuación se presenta el codigo para seleccionar los mejores parametros del modelo en función de la métrica rmse:
+Hacer el workflow final, que contiene los parámetros tuneados
 
 ```{r}
-param_final_reg <- rf_tune_results_reg %>% 
-  select_best(metric = "rmse")
-
-param_final_reg
-
-param_final_clas <- clas_tune %>% 
-  select_best(metric = "roc_auc")
-
-param_final_clas
+final_workflow_clas <- workflow() %>% 
+  add_recipe(indicadores_clas_rec) %>% 
+  add_model(rf_final_model_clas)
 ```
 
 
 ## Validar el modelo de random forest
 
 ```{r}
-rf_val_clas <- rf_workflow_clas %>% 
+rf_val_clas <- final_workflow_clas %>% 
   last_fit(indicadores_clas_split)
 
 rf_val_clas %>% collect_predictions()
@@ -685,7 +615,7 @@ rf_val_clas %>% collect_predictions() %>%
 
 ## Modelo final del random forest
 ```{r}
-rf_final_model_clas <- fit(rf_workflow_clas, training(indicadores_clas_split))
+rf_final_model_clas <- fit(final_workflow_clas, training(indicadores_clas_split))
 rf_final_model_clas
 ```
 
@@ -693,7 +623,7 @@ rf_final_model_clas
 testing
 
 ```{r}
-rf_final_model_clas_test <- fit(rf_workflow_clas, testing(indicadores_clas_split))
+rf_final_model_clas_test <- fit(final_workflow_clas, testing(indicadores_clas_split))
 rf_final_model_clas_test
 ```
 
