@@ -328,49 +328,9 @@ variables_info_directa <- c(
 ```
 
 
-Eliminar columnas que no son necesarias
+Eliminar columnas que no son necesarias y crear columna riesgo
+
 ```{r}
-#indicadores_clas$X <- NULL
-#indicadores_clas$cod_entidad <- NULL #porque hay muy pccos datos de cada municipio
-#indicadores_clas$nit_entidad <- NULL
-#indicadores_clas$cod_departamento <- NULL #porque ya se tiene el ombre del departamento
-#indicadores_clas$municipio_entidad <- NULL #porque hay muy pocos datos de cada municipio
-#indicadores_clas$depto_mun <- NULL #porque hay muy pocos datos de cada municipio
-
-#Eliminar contratación directa
-#indicadores_clas$indba_perc_direc_val <- NULL #porque se supone que no tenemos info de contr. 
-#indicadores_clas$indba_perc_cerrada_num <- NULL
-#indicadores_clas$indba_perc_cerrada_val <- NULL
-
-#para volver a correr el modelo porque con esta columna genera error 
-#indicadores_clas$nombre_entidad <- NULL
-
-# eliminar supersalud que no sé manejar jeje
-#indicadores_clas$supers_ind2_efectividad_en_auditoria_hos <- NULL
-#indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info_hos <- NULL
-
-#indicadores_clas$indba_prop_contr_finyr_total_hos <- NULL
-
-#eliminar otros indicadores de supersalud que no yudaron
-#indicadores_clas$supers_perc_pacientes_hipertension <- NULL
-#indicadores_clas$supers_oportun_atencion_consulta_odonto_general <- NULL
-#indicadores_clas$supers_oportun_asign_citas_consulta_general <- NULL
-#indicadores_clas$supers_tasa_satis_global <- NULL
-
-#pasar a factor las nominales a ver si funciona el modelo
-#indicadores_gen$nombre_entidad <- as.factor(indicadores_gen$nombre_entidad)
-#indicadores_clas$orden_entidad <- as.factor(indicadores_clas$orden_entidad)
-#indicadores_clas$departamento_entidad <- as.factor(indicadores_clas$departamento_entidad)
-
-# eliminar la columna de los deptos porque no es importante 
-#indicadores_gen$departamento_entidad <- NULL
-# cuando se elimina los departamentos el r cuadrado baja
-
-
-# ver si el modelo hace un mejor trabajo solo con los que tienen contr directa >0
-#indicadores_gen <- indicadores_gen %>% filter(perc_contr_directa_num>0)
-
-
 # eliminar las no necesarias
 indicadores_clas <- indicadores_clas %>%
   dplyr::select(-all_of(variables_no_necesarias), -all_of(variables_info_directa))
@@ -380,25 +340,14 @@ indicadores_clas <- indicadores_clas %>%
   mutate(riesgo = case_when(indba_perc_cdirec_num_hos <= 25 ~ "Bajo o moderado",
                             indba_perc_cdirec_num_hos <= 55 ~ "Medio",
                             TRUE ~ "Alto"))
+```
 
-#indicadores_clas$riesgo <- as.factor(indicadores_clas$riesgo)
+Calcular los cuartiles y graficar
 
-# Eliminar la columna de la que se sacó la información
-#indicadores_clas$perc_contr_directa_num <- NULL
-
-#indicadores_clas$riesgo <- NULL
+```{r}
 #Ccalcular los cuartiles
 #cartiles <-quantile(indicadores_clas$indba_perc_cdirec_num)
 
-# crear la columna de los cuartiles
-#indicadores_clas <- indicadores_clas %>% 
-#  mutate(quartil = case_when(indba_perc_cdirec_num <= cartiles[2] ~ "Q1",
-#                             indba_perc_cdirec_num <= cartiles[3] ~ "Q2",
-#                             indba_perc_cdirec_num <= cartiles[4] ~ "Q3",
-#                             TRUE ~ "Q4") )
-
-#verfiicar que si esta funcionando
-#indicadores_clas %>% dplyr::select(perc_contr_directa_num, quartil)
 
 # hacer histograma con la distribucion de los cuartiles
 ggplot(indicadores_clas, aes(indba_perc_cdirec_num_hos)) + 
@@ -416,7 +365,9 @@ ggplot(indicadores_clas, aes(indba_perc_cdirec_num_hos)) +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
+
 Eliminar el porcentaje de contratacion directa
+
 ```{r}
 indicadores_clas$indba_perc_cdirec_num_hos <- NULL
 
@@ -493,6 +444,7 @@ confirmed <- getConfirmedFormula(boruta)
 
 
 División de los datos en train y test
+
 ```{r}
 set.seed(458)
 indicadores_clas_split <- initial_split(indicadores_clas,
@@ -505,6 +457,7 @@ Definir las tareas de preprocesamiento
 
 - Normalizar las variables numéricas
 -  Crear variables dummyes con las variables categóricas
+
 ```{r}
 indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
@@ -513,29 +466,159 @@ indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>%
   step_zv(all_numeric()) %>% #creates a specification of a recipe step that will remove variables that contain only a single value.
  step_smote(riesgo)
 
+indicadores_clas_prep <- prep(indicadores_clas_rec)
+juiced <- juice(indicadores_clas_prep)
 
 prop.table(table(indicadores_clas$riesgo))
 
 indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 ```
 
+El objeto indicadores_clas_rec se puede aplicar a otros objetos, pero para ello hay que prepararlo para que aprenda las instrucciones del recipe()
+
+```{r}
+indicadores_clas_train_prep <- indicadores_clas_rec %>% 
+  prep() %>% 
+  juice()
+```
+
+
 ## Definir el modelo random forest
 
 Se configura un modelo con los parametros que trae la función por defecto.
 ```{r}
-rf_model_clas <-  rand_forest() %>% 
+rf_model_clas <-  rand_forest(mtry = tune(),
+                              trees = 1000, #porque este parámeto por lo general no ayuda mucho tunearlo
+                              min_n = tune()) %>% 
   set_engine("ranger", importance = "impurity") %>% 
   set_mode("classification") 
 ```
 
 ## Definir el workflow
+
 ```{r}
 rf_workflow_clas <- workflow() %>% 
   add_recipe(indicadores_clas_rec) %>% 
   add_model(rf_model_clas)
 ```
 
+## Tunear los parámetros del modelo Random Forest
+
+Crear un regular_grid
+
+```{r}
+rf_grid <- grid_regular(
+  mtry(range = c(10, 30)),
+  min_n(range = c(2, 8)),
+  levels = 5
+)
+
+rf_grid
+```
+
+validación cruada
+
+```{r}
+set.seed(245)
+rf_folds <- vfold_cv(indicadores_clas_train)
+
+clas_metrics <- metric_set(roc_auc, accuracy)
+
+doParallel::registerDoParallel()
+set.seed(467)
+
+clas_tune <- rf_model_clas %>% 
+  tune_grid(resamples = rf_folds,
+            grid = rf_grid,
+            metrics = clas_metrics)
+
+clas_tune
+```
+
+
+## Calibración de parámetros
+
+Para calibrar los parametros se utiliza el metodo de validación cruzada. Este procedimiento tiene como proposito encontrar los parametros optimos del modelo o algoritmo.
+```{r}
+# creación de los folds
+set.seed(245)
+rf_folds <- vfold_cv(indicadores_clas_train)
+
+clas_metrics <- metric_set(roc_auc, accuracy)
+
+rf_folds
+```
+
+Ahora se configuran las metricas que se utilizarán para calibrar los parametros del modelo en la validación cruzada. Primero se define la grilla de valores para los parametros del modelo.
+```{r}
+rf_gird_reg <- expand.grid(mtry = c(3, 4, 5, 7),
+                           trees = c(100, 300, 500))
+
+```
+
+Ahora se corre un modelo de random forest para cada una de estas condiciones.
+```{r}
+rf_tune_results_reg <- rf_workflow_reg %>% 
+  tune_grid(resamples = indicadores_gen_cv,
+            grid = rf_gird_reg,
+            metrics = metric_set(rmse, mae))
+
+clas_tune <- rf_model_clas %>% 
+  tune_grid(resamples = rf_folds,
+            grid = 20,
+            metrics = clas_metrics)
+
+#rf_tune_results_reg
+```
+
+A continuación se presenta la tabla que contiene el valor de las metricas para valor de los parametros y de acuerdo a cada metrica.
+```{r}
+# print results
+rf_metrics_reg <- rf_tune_results_reg %>% 
+  collect_metrics()
+
+rf_metrics_reg
+
+rf_metrics_clas <- clas_tune %>% collect_metrics()
+
+rf_metrics_clas
+```
+
+A continuación se presentan un conjunto de gráfica que permiten analizar el comportamiento de las métricas para cada uno de los paramétros del modelo.
+```{r}
+rf_metrics_clas %>% 
+  filter(.metric == "roc_auc") %>% 
+  ggplot(aes(mtry, mean, col = factor(trees))) +
+  geom_line(alpha = 0.5, size = 1) +
+  ggtitle("RMSE en función del mtry y el número de árboles")
+```
+
+grafico2
+```{r}
+rf_metrics_clas %>% 
+  filter(.metric == "accuracy") %>% 
+  ggplot(aes(mtry, mean, col = factor(trees))) +
+  geom_line(alpha = 0.5, size = 1) +
+  ggtitle("RMSE en función del mtry y el número de árboles")
+```
+
+A continuación se presenta el codigo para seleccionar los mejores parametros del modelo en función de la métrica rmse:
+
+```{r}
+param_final_reg <- rf_tune_results_reg %>% 
+  select_best(metric = "rmse")
+
+param_final_reg
+
+param_final_clas <- clas_tune %>% 
+  select_best(metric = "roc_auc")
+
+param_final_clas
+```
+
+
 ## Validar el modelo de random forest
+
 ```{r}
 rf_val_clas <- rf_workflow_clas %>% 
   last_fit(indicadores_clas_split)
