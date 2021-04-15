@@ -435,19 +435,19 @@ indicadores_gen_rec <- recipe(not_rejected,data = indicadores_gen) %>%
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
-  step_zv(all_numeric()) 
-#%>%
-#  step_smote(riesgo)
+  step_zv(all_numeric()) %>%
+  step_smote(riesgo)
 
 indicadores_gen_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 ```
 
 
 Pongamos la especificación del modelo en un flujo de trabajo para mayor comodidad. Como no tenemos ningún preprocesamiento de datos complicado, podemos usar add_formula () como nuestro preprocesador de datos.
+
 ```{r}
 xgb_wf <- workflow() %>%
-#  add_recipe(indicadores_gen_rec) %>% 
-  add_formula(not_rejected) %>% 
+  add_recipe(indicadores_gen_rec) %>% 
+#  add_formula(not_rejected) %>% 
   add_model(xgb_spec)
 
 xgb_wf
@@ -504,6 +504,7 @@ xgb_res %>%
 Recuerde que usamos un diseño que llena el espacio para que los parámetros prueben. Parece que los valores más altos para la profundidad del árbol fueron mejores, pero aparte de eso, lo principal que saco de este gráfico es que hay varias combinaciones de parámetros que funcionan bien.
 
 ¿Cuáles son los conjuntos de parámetros con mejor rendimiento?
+
 ```{r}
 show_best(xgb_res, "roc_auc")
 ```
@@ -638,3 +639,8 @@ importantes_xgb %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>%
       theme(plot.title = element_text(hjust = 0.5))
 ```
 
+ver si hay nas
+
+```{r}
+sapply(indicadores_gen, function(x) sum(is.na(x)))
+```
