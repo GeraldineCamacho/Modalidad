@@ -463,8 +463,8 @@ indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>%
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
-  step_zv(all_numeric()) #%>% #creates a specification of a recipe step that will remove variables that contain only a single value.
-# step_smote(riesgo)
+  step_zv(all_numeric()) %>% #creates a specification of a recipe step that will remove variables that contain only a single value.
+ step_smote(riesgo)
 
 prop.table(table(indicadores_clas$riesgo))
 
@@ -509,7 +509,7 @@ validación cruada
 
 ```{r}
 set.seed(245)
-rf_folds <- vfold_cv(indicadores_clas_train)
+rf_folds <- vfold_cv(indicadores_clas_train, strata = riesgo)
 
 clas_metrics <- metric_set(roc_auc, accuracy)
 
@@ -635,11 +635,13 @@ ranger_obj_clas <- pull_workflow_fit(rf_final_model_clas)$fit
 rf_importacia_clas <- tibble(variable = names(ranger_obj_clas$variable.importance),
                             importancia = ranger_obj_clas$variable.importance)
 
-rf_importacia_clas
 
 importantes_clas <- data.frame(rf_importacia_clas %>% 
                              mutate(variable = forcats::fct_reorder(variable, importancia)) %>% 
                             arrange(desc(importancia)))
+
+importantes_clas
+
 ```
 ## Accuracy
 
