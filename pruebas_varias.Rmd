@@ -1466,3 +1466,141 @@ indicadores_bd_td <- merge(indicadores_bd_td,
  
 ```
 
+## Cercanos a elecciones o dentro de ley de garantias
+
+```{r}
+head(SECOP_I)
+head(SECOP_I$fecha_firma_contrato, 15)
+```
+
+Calcular
+- Proporción de contratos por prestación de servicios
+- Cuántos contratos hay cercanos a la mínima cuantía
+- Cuántos contratos hay cercanos o dentro de la ley de garantías
+
+### Proporción de contratos por prestación de servicios
+
+```{r}
+indicadores_bd_td <- SECOP_I %>% 
+  filter(tipo_contrato == "Prestación de Servicios") %>% 
+  count(nombre_entidad, sort = TRUE) %>% 
+  merge(y = indicadores_bd_td,
+        by = "nombre_entidad",
+        all.y = TRUE) %>% 
+  rename(indba_cant_prestacion_servicios_hos = "n") %>% 
+  mutate(indba_perc_prestacion_servicios_hos = (indba_cant_prestacion_servicios_hos/indba_total_cont_hos) *100)
+# %>% dplyr::select(nombre_entidad, indba_total_cont_hos, indba_cant_prestacion_servicios_hos, indba_perc_prestacion_servicios_hos, indba_perc_cdirec_num_hos) 
+```
+
+Ver si la normalidad de las variabes
+
+```{r}
+shapiro.test(indicadores_bd_td$indba_perc_prestacion_servicios_hos)
+shapiro.test(indicadores_bd_td$indba_perc_cdirec_num_hos)
+```
+
+Test de correlación: Como las variables NO siguen una distribución normal se procede a calcular un coef de correlacion de Spearman
+
+```{r}
+cor.test(x = indicadores_bd_td$indba_perc_prestacion_servicios_hos,
+         y = indicadores_bd_td$indba_perc_cdirec_num_hos,
+        method = "spearman")
+```
+
+### Cuántos contratos hay cercanos o dentro de la ley de garantías
+
+```{r}
+SECOP_I %>%
+  filter(tipo_contrato == "Prestación de Servicios") %>% 
+  mutate(indba_ley_garabtias_2014_hos  = fecha_firma_contrato - as.Date("2014-01-15")) %>% 
+  dplyr::select(nombre_entidad, indba_ley_garabtias_2014_hos) %>%
+  filter(indba_ley_garabtias_2014_hos < 0) %>% 
+  arrange(indba_ley_garabtias_2014_hos) %>% view()
+```
+
+
+```{r}
+merge(
+# garantías 2014
+  SECOP_I %>%
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  filter(fecha_firma_contrato > as.Date("2014-01-15") & fecha_firma_contrato < as.Date("2014-06-16")) %>%
+  mutate(indba_ley_garantias_2014_hos  = fecha_firma_contrato - as.Date("2014-01-15")) %>% 
+  dplyr::select(nombre_entidad, indba_ley_garantias_2014_hos) %>%
+  group_by(nombre_entidad) %>% 
+  summarise(indba_ley_garantias_cant_2014_hos = n(),
+            indba_ley_garantias_dias_2014_hos = mean(indba_ley_garantias_2014_hos)) ,
+# garantías 2018
+  SECOP_I %>%
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  filter(fecha_firma_contrato > as.Date("2018-01-27") & fecha_firma_contrato < as.Date("2018-06-18")) %>%
+  mutate(indba_ley_garantias_2018_hos  = fecha_firma_contrato - as.Date("2018-01-27")) %>% 
+  dplyr::select(nombre_entidad, indba_ley_garantias_2018_hos) %>%
+  group_by(nombre_entidad) %>% 
+  summarise(indba_ley_garantias_cant_2018_hos = n(),
+            indba_ley_garantias_dias_20148_hos = mean(indba_ley_garantias_2018_hos)) ,
+  by = "nombre_entidad"
+)
+
+SECOP_I %>%
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  filter(fecha_firma_contrato > as.Date("2014-01-15") & fecha_firma_contrato < as.Date("2014-06-16")) %>%
+  mutate(indba_ley_garantias_2014_hos  = fecha_firma_contrato - as.Date("2014-01-15")) %>% 
+  dplyr::select(nombre_entidad, indba_ley_garantias_2014_hos) %>%
+  group_by(nombre_entidad) %>% 
+  summarise(indba_ley_garantias_cant_2014_hos = n(),
+            indba_ley_garantias_dias_2014_hos = mean(indba_ley_garantias_2014_hos)) %>% 
+  arrange(desc(indba_ley_garantias_cant_2014_hos))
+
+SECOP_I %>%
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%
+  filter(fecha_firma_contrato > as.Date("2018-01-27") & fecha_firma_contrato < as.Date("2018-06-18")) %>%
+  mutate(indba_ley_garantias_2018_hos  = fecha_firma_contrato - as.Date("2018-01-27")) %>% 
+  dplyr::select(nombre_entidad, indba_ley_garantias_2018_hos) %>%
+  group_by(nombre_entidad) %>% 
+  summarise(indba_ley_garantias_cant_2018_hos = n(),
+            indba_ley_garantias_dias_20148_hos = mean(indba_ley_garantias_2018_hos)) %>% 
+  arrange(desc(indba_ley_garantias_cant_2018_hos))
+
+```
+
+Crear el dataset con los datos necesarios de la ley de garantías
+
+```{r}
+ley_garantias <- merge(
+# garantías 2014
+  SECOP_I %>%
+  filter(fecha_firma_contrato > as.Date("2014-01-15") & fecha_firma_contrato < as.Date("2014-06-16")) %>%
+  mutate(indba_ley_garantias_2014_hos  = fecha_firma_contrato - as.Date("2014-01-15")) %>% 
+  dplyr::select(nombre_entidad, indba_ley_garantias_2014_hos) %>%
+  group_by(nombre_entidad) %>% 
+  summarise(indba_ley_garantias_cant_2014_hos = n(),
+            indba_ley_garantias_dias_2014_hos = mean(indba_ley_garantias_2014_hos)) ,
+# garantías 2018
+  SECOP_I %>%
+  filter(fecha_firma_contrato > as.Date("2018-01-27") & fecha_firma_contrato < as.Date("2018-06-18")) %>%
+  mutate(indba_ley_garantias_2018_hos  = fecha_firma_contrato - as.Date("2018-01-27")) %>% 
+  dplyr::select(nombre_entidad, indba_ley_garantias_2018_hos) %>%
+  group_by(nombre_entidad) %>% 
+  summarise(indba_ley_garantias_cant_2018_hos = n(),
+            indba_ley_garantias_dias_20148_hos = mean(indba_ley_garantias_2018_hos)) ,
+  by = "nombre_entidad"
+)
+
+```
+
+### Hacer el merge
+
+```{r}
+indicadores_bd_td <- merge(indicadores_bd_td,
+      ley_garantias,
+      by = "nombre_entidad",
+      all.x = TRUE)
+```
+
+### Cuántos contratos hay cercanos a la mínima cuantía
+
+```{r}
+
+```
+
