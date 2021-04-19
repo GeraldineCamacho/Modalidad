@@ -380,11 +380,16 @@ indicadores_clas$indba_perc_cdirec_num_hos <- NULL
 #indicdores_clas$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_clas$supers_ind10_oportunidad_entraega_reporte_info)] <- "NO REGISTRA"
 
 indicadores_clas <- indicadores_clas %>% 
-  mutate_if(is.character, factor)
+  mutate_if(is.character, factor) %>% 
+  mutate(indba_ley_garantias_dias_2014_hos = as.numeric(indba_ley_garantias_dias_2014_hos),
+         indba_ley_garantias_dias_20148_hos = as.numeric(indba_ley_garantias_dias_20148_hos))
 
 #head(indicadores_clas[,182:184], 10)
 
 #indicadores_clas <- indicadores_clas[,c(1:18, 184)]
+
+
+
 ```
 
 
@@ -459,7 +464,7 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>% 
+indicadores_clas_rec <- recipe(riesgo ~ ., data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
@@ -468,7 +473,7 @@ indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>%
 
 prop.table(table(indicadores_clas$riesgo))
 
-indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
+#indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 ```
 
 
