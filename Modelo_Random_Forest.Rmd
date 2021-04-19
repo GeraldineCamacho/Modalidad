@@ -297,8 +297,24 @@ Lectura de los datos
 ```{r}
 #indicadores_clas <- read.csv("indicadores_BD.csv")
 #indicadores_bd_td <- indicadores_reserva
+#indicadores_bd_td$supers_ind10_oportunidad_entrega_reporte_info_hos <- as.numeric(indicadores_bd_td$supers_ind10_oportunidad_entrega_reporte_info_hos)
+
+indicadores_bd_td <- indicadores_bd_td %>% 
+  mutate(indba_ley_garantias_dias_2014_hos = as.numeric(indba_ley_garantias_dias_2014_hos),
+         indba_ley_garantias_dias_20148_hos = as.numeric(indba_ley_garantias_dias_20148_hos),
+         supers_ind10_oportunidad_entrega_reporte_info_hos = as.numeric(supers_ind10_oportunidad_entrega_reporte_info_hos))
 indicadores_clas <- indicadores_bd_td
 head(indicadores_clas)
+
+indicadores_clas <- indicadores_bd_td %>% pivot_longer(cols = !c("nombre_entidad", "nit_entidad", "cod_entidad", "orden_entidad", "departamento_entidad", "cod_departamento", "municipio_entidad", "depto_mun"),
+                                   names_to = "indicador",
+                                   values_to = "valor") %>%
+  mutate(indicador_indba = str_detect(indicador, "indba")) %>% 
+  filter(indicador_indba == TRUE) %>% 
+  pivot_wider(names_from = indicador, 
+              values_from = valor) %>% 
+  dplyr::select(-indicador_indba)
+
 
 #DEJAR TODOS LOS INDICADORES FINANCIEROS !!!
 ```
@@ -380,9 +396,7 @@ indicadores_clas$indba_perc_cdirec_num_hos <- NULL
 #indicdores_clas$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_clas$supers_ind10_oportunidad_entraega_reporte_info)] <- "NO REGISTRA"
 
 indicadores_clas <- indicadores_clas %>% 
-  mutate_if(is.character, factor) %>% 
-  mutate(indba_ley_garantias_dias_2014_hos = as.numeric(indba_ley_garantias_dias_2014_hos),
-         indba_ley_garantias_dias_20148_hos = as.numeric(indba_ley_garantias_dias_20148_hos))
+  mutate_if(is.character, factor)
 
 #head(indicadores_clas[,182:184], 10)
 
@@ -399,8 +413,8 @@ Crear los datos de muestra
 
 ```{r}
 # crear una muestra de los datos
-muestra_indicadores_clas <- sample(2, nrow(indicadores_clas), replace = TRUE, prob = c(0.6, 0.4))
-muestra_indicadores_clas <- indicadores_clas[ind == 1]
+muestra_indicadores_clas <- initial_split(indicadores_clas, strata = riesgo)
+muestra_indicadores_clas <- training(muestra_indicadores_clas)
 
 head(muestra_indicadores_clas)
 ```
