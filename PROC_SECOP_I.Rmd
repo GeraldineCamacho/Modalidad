@@ -614,7 +614,7 @@ total_contratos_directos <- secop_directa %>%
 deptos <- merge(total_contratos,
                 total_contratos_directos,
                 by = "departamento_ejecucion",
-                all.y = TRUE) %>% 
+                all.x = TRUE) %>% 
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
 
@@ -698,7 +698,7 @@ total_contratos_directos <- secop_directa %>%
 municipios <- merge(total_contratos,
                 total_contratos_directos,
                 by = "depto_mun",
-                all.y = TRUE) %>% # porque me interesan solo los hospitales con contratos directos
+                all.x = TRUE) %>% 
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
 
@@ -784,7 +784,7 @@ total_contratos_directos <- secop_directa %>%
 hospitales <- merge(total_contratos,
                 total_contratos_directos,
                 by = "nombre_entidad",
-                all.y = TRUE) %>% # porque me interesan solo los hospitales con contratos directos
+                all.x = TRUE) %>% # porque me interesan solo los hospitales con contratos directos
   mutate(prop_directa = as.numeric(sprintf("%.2f", 
                                 (contratos_directos / contratos)*100)))
 
