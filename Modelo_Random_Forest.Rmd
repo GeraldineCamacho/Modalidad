@@ -299,21 +299,8 @@ Lectura de los datos
 #indicadores_bd_td <- indicadores_reserva
 #indicadores_bd_td$supers_ind10_oportunidad_entrega_reporte_info_hos <- as.numeric(indicadores_bd_td$supers_ind10_oportunidad_entrega_reporte_info_hos)
 
-indicadores_bd_td <- indicadores_bd_td %>% 
-  mutate(indba_ley_garantias_dias_2014_hos = as.numeric(indba_ley_garantias_dias_2014_hos),
-         indba_ley_garantias_dias_20148_hos = as.numeric(indba_ley_garantias_dias_20148_hos),
-         supers_ind10_oportunidad_entrega_reporte_info_hos = as.numeric(supers_ind10_oportunidad_entrega_reporte_info_hos))
 indicadores_clas <- indicadores_bd_td
 head(indicadores_clas)
-
-indicadores_clas <- indicadores_bd_td %>% pivot_longer(cols = !c("nombre_entidad", "nit_entidad", "cod_entidad", "orden_entidad", "departamento_entidad", "cod_departamento", "municipio_entidad", "depto_mun"),
-                                   names_to = "indicador",
-                                   values_to = "valor") %>%
-  mutate(indicador_indba = str_detect(indicador, "indba")) %>% 
-  filter(indicador_indba == TRUE) %>% 
-  pivot_wider(names_from = indicador, 
-              values_from = valor) %>% 
-  dplyr::select(-indicador_indba)
 
 
 #DEJAR TODOS LOS INDICADORES FINANCIEROS !!!
@@ -478,7 +465,7 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_clas_rec <- recipe(riesgo ~ ., data = indicadores_clas) %>% 
+indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
