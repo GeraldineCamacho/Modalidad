@@ -302,7 +302,11 @@ SECOP_I %>%  filter(valor_total_con_adiciones>=1000000000000) %>%
 
 Adiciones superan billon de pesos (0)
 ```{r}
-SECOP_I %>%  filter(valor_adiciones >=1000000000000) %>%  group_by(tipo_proceso) %>%  summarise(CantidadContratos=n(),ValorContratos= sum(valor_adiciones), ValorAdiciones = sum(valor_adiciones) )
+SECOP_I %>%  filter(valor_adiciones >=1000000000000) %>%
+  group_by(tipo_proceso) %>%
+  summarise(CantidadContratos=n(),
+            ValorContratos= sum(valor_adiciones),
+            ValorAdiciones = sum(valor_adiciones) )
 ```
 
 lhjjhjhjjh
@@ -322,31 +326,33 @@ SECOP_I  %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") 
              contratos= n())
 ```
 
-Cuántos contratos por CONTRATACIÓN DIRECTA superan el billón de pesos???? 
+Cuántos contratos por CONTRATACIÓN DIRECTA superan el billón de pesos (1)
 EL PIB SE COLOMBIA ES SÓLO DE 1*10^16
 ```{r}
-datatable(SECOP_I %>%  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & valor_total_con_adiciones>=1000000000000) %>%  
+SECOP_I %>%  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & valor_total_con_adiciones>=1000000000000) %>%  
             group_by(anno_firma) %>%  
             summarise(CantidadContratos=n(),
                       ValorContratos= sum(valor_total_con_adiciones),
-                      ValorAdiciones = sum(valor_adiciones)))
+                      ValorAdiciones = sum(valor_adiciones))
 ```
 
 CAUSAL CONTRATACIÓN DIRECTA
 ```{r}
-datatable(SECOP_I %>%  
-            filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & valor_total_con_adiciones >= 1000000000000) %>% 
+SECOP_I %>%  
+            filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & 
+                     valor_total_con_adiciones >= 1000000000000) %>% 
             group_by(causa_otras_formas_contr_directa) %>%  
             summarise(CantidadContratos=n(),
                       ValorContratos= sum(valor_total_con_adiciones),
-                      ValorAdiciones = sum(valor_adiciones)))
+                      ValorAdiciones = sum(valor_adiciones))
 
  # ERROR DE DIGITACIÓN prestación de servicio como auxiliar de enfermería en el centro de salud del corregimiento de machuca POR 9 MILLONES
 ```
 
 ```{r}
 SECOP_I %>%  
-            filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" & valor_total_con_adiciones >= 1000000000000) %>%   
+            filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)" &
+                     valor_total_con_adiciones >= 1000000000000) %>%   
            dplyr::select(ruta_web)
 ```
 
@@ -386,10 +392,15 @@ DT[UID == "17-4-6199325-5791779", valor_inicial:=1795000000]
 DT[UID == "17-4-6253965-5688643", valor_inicial:=813000000]
 DT[UID == "17-4-6354435-6392483", valor_inicial:=16285000]
 #DT[UID == "17-4-6357142-5781633", valor_inicial:= ]
+
+## NO CORRER ESTOS PUES NO SON DE INTERÉS POR EL MOMENTO !!!!!!!!!!!!!!!
 ```
-Por valor de adiciones superan el billon de pesos
+
+Por valor de adiciones superan el billon de pesos (nNO HAY)
+
 ```{r}
-SuperBillonAdiciones<- DT %>%  filter( valor_adiciones >=1000000000000)
+#SuperBillonAdiciones<- 
+  SECOP_I %>%  filter( valor_adiciones >= 1000000000000)
 ```
 Reemplazqar
 ```{r}
@@ -441,6 +452,8 @@ DT[UID == "14-4-2242396-2102924", valor_adiciones:=1684000000]
 DT[UID == "17-1-173777-6263386", valor_adiciones:=2064000000]
 DT[UID == "16-4-5104616-5795571", valor_adiciones:=24614000000]
 DT[UID == "18-12-7828581-7106334", valor_adiciones:=20000000000]
+
+# NO CORRER ESTO PUES YA NO APLICA AL CASO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 ```
 
 ```{r}
@@ -448,6 +461,49 @@ DT[UID == "17-12-7108735-6458288",]
 datatable(DT %>% group_by(contratista) %>% summarise(Total= n()))
 ```
 PUESTO QUE LOS CONTRATOS NO APARENTAN SER DE CONTRATOS SENCILLOS, SE PODRÍA INFERIR QUE LAS ELEVADAS CIFRAS EN EL VALOR DE LOS CONTRATOS Y EN EL VALOR DE LAS ADICIONES SE PUEDE DEBER A ERRORES DE DIGITACIÓN
+
+## VER Y REEMPLAZAR VALORES BILLON
+
+Ver valor total final del contrato (con adiciones) que superan el billon de  pesos (2)
+
+```{r}
+datatable(SECOP_I %>% filter(valor_total_con_adiciones >= 1000000000000 ) %>% 
+  dplyr::select(valor_total_con_adiciones, ruta_web))
+```
+
+Reemplazar valores con valores superiores a 1 billon de pesos (2)
+
+```{r}
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-12-9698241", valor_total_con_adiciones := 9000000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=17-4-7112778", valor_total_con_adiciones := 1000000000]
+```
+
+# (YILBER) VER Y REEMPLAZAR VALORES 100 MIL MILLONES
+
+Ver valor total final del contrato (con adiciones) que superan 100 mil millones de  pesos (2)
+
+```{r}
+SECOP_I %>% filter(ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=17-4-6117475") %>% 
+  dplyr::select(cuantia_contrato)
+
+datatable(SECOP_I %>% filter(valor_total_con_adiciones >= 100000000000 ) %>% 
+  dplyr::select(cuantia_proceso, valor_adiciones, cuantia_contrato, valor_total_con_adiciones, ruta_web))
+```
+
+# (GERALDINE) Reemplazar valores adiciones con valores superiores a 100 mil millones de pesos
+
+```{r}
+datatable(SECOP_I %>% filter(valor_adiciones >= 100000000000 ) %>% 
+  dplyr::select(cuantia_proceso, valor_adiciones, cuantia_contrato, valor_total_con_adiciones, ruta_web))
+```
+
+
+datos pequeños
+
+```{r}
+SECOP_I %>% filter(valor_total_con_adiciones <= 100000000 ) %>% 
+  dplyr::select(cuantia_proceso, valor_adiciones, cuantia_contrato, valor_total_con_adiciones, ruta_web)
+```
 
 
 # 3.CARACTERIZACIÓN ENTIDADES CONTRATANTES (HOSPITALES)
