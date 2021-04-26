@@ -511,20 +511,42 @@ SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?nu
 revisar los que están por encima de 50k??????
 
 ```{r}
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
-SECOP_I[ruta_web == "", cuantia_contrato := ]
+datatable(SECOP_I %>% filter(cuantia_contrato >= 50000000000 & cuantia_contrato < 100000000000) %>% 
+  dplyr::select(cuantia_proceso, valor_adiciones, cuantia_contrato, valor_total_con_adiciones, ruta_web))
+```
+
+Reemplazar los errores de superior a 50 mil millones
+
+```{r}
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=16-4-5498665", cuantia_contrato := 50000000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=16-4-5625113", cuantia_contrato := 102000000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=15-4-3982280", cuantia_contrato := 967056904]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9793899", cuantia_contrato := 69972000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=15-4-3629924", cuantia_contrato := 63684000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-10102744", cuantia_contrato := 78210000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-12-9784733", cuantia_contrato := 55000000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=17-4-6798680", cuantia_contrato := 57953000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=15-4-4374710", cuantia_contrato := 80000000]
+```
+
+
+Entre 10 mil millones  50 mil millones
+
+```{r}
+datatable(SECOP_I %>% filter(cuantia_contrato >= 20000000000 & cuantia_contrato < 50000000000) %>%
+    dplyr::select(cuantia_proceso, valor_adiciones, cuantia_contrato, valor_total_con_adiciones, ruta_web))
+```
+
+
+estos aún no se han corrido
+
+```{r}
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=16-4-4686645", cuantia_contrato := 37900000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=20-4-10375897", cuantia_contrato := 35210000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=14-4-3143012", cuantia_contrato := 22140000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=15-12-3410928", cuantia_contrato := 38850000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-10171238", cuantia_contrato := 30000000]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=18-4-8367679", cuantia_contrato := "39000000"]
 ```
 
 
