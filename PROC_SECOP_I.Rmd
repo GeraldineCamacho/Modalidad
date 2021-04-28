@@ -605,8 +605,6 @@ fwrite(SECOP_I, file = "SECOP_IPS_LIMPIA_2.csv",
        row.names = FALSE)
 ```
 
-secop_i_ips_limpia.csv
-
 # 3.CARACTERIZACIÓN ENTIDADES CONTRATANTES (HOSPITALES)
 ```{r}
 SECOP_I  %>% filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)") %>%  
