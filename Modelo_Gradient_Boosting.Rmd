@@ -331,8 +331,8 @@ Crear los datos de muestra
 
 ```{r}
 # crear una muestra de los datos
-muestra_indicadores_gen <- sample(2, nrow(indicadores_gen), replace = TRUE, prob = c(0.6, 0.4))
-muestra_indicadores_gen <- indicadores_gen[ind == 1]
+muestra_indicadores_gen <- initial_split(indicadores_gen, strata = riesgo)
+muestra_indicadores_gen <- training(muestra_indicadores_gen)
 
 head(muestra_indicadores_gen)
 ```
