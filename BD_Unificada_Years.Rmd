@@ -28,6 +28,7 @@ Lectura de los datos iniciales de los indicadores
 ```{r}
 indicadores <- read_delim("Indicadores_Final_Anno.csv", ";")
 head(indicadores)
+#apply(is.na(indicadores), 2, cantyprop_nas)
 ```
 
 Ajustes a la base de dato de indicadores
@@ -212,6 +213,8 @@ indicadores_bd_td<- merge(indicadores,
                        by.x= "departamento_entidad",
                        by.y= "departamento",
                        all.x=TRUE)
+
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
 ```
 
 #### 2.1.1.2. Por municipios
@@ -275,9 +278,12 @@ Unir las dos bases de datos de economia
 ### Unir indicadores_BD general con los indicadores municipio (recordar problema con San Andrés y Bogotá)
 indicadores_bd_td <- merge(indicadores_bd_td,
                        economia_municipio,
-                       by="depto_mun",
-                       all.x= FALSE,
-                       all.y=TRUE)
+                       by ="depto_mun",
+                       all.x = TRUE,
+                       all.y = FALSE) %>% 
+  drop_na(cod_entidad)
+
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
 ```
 
 cambiar nombre de indidacor de corrupción
@@ -344,7 +350,7 @@ Reemplazar los na en el cod_departamento bogotá
 
 ```{r}
 indicadores_bd_td <- as.data.table(indicadores_bd_td)
-indicadores_bd_td[departamento_entidad == "Bogotá", cod_departamento := "11001" ]
+indicadores_bd_td[departamento_entidad == "Bogotá", cod_departamento := "11001"]
 ```
 
 
@@ -447,12 +453,15 @@ financiero_municipio$inf_valor_proyectos_2016_mun <- NULL
 
 ```{r}
 #financiero_municipio$codigo_entidad <- as.character(financiero_municipio$codigo_entidad)
-#indicadores_bd_td <- indicadores_bd_td[, 1:113]
+#indicadores_bd_td <- indicadores_bd_td[, 1:118]
 indicadores_bd_td <- merge(indicadores_bd_td,
                            financiero_municipio,
                            by.x = "cod_entidad",
                            by.y = "codigo_entidad", 
-                           all.x = TRUE)
+                           all.x = TRUE,
+                           all.y = FALSE)
+
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
 ```
 
 ver los NAs
@@ -645,7 +654,7 @@ Ver de nuevo la cantidad de nas
 apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
 ```
 
-Eliminación de las variables con NAs mayor al 40%
+Eliminación de las variables con NAs mayor al 40% (NO correr)
 
 ```{r}
 indicadores_bd_td <- indicadores_bd_td %>% 
@@ -1429,7 +1438,7 @@ indicadores_bd_td <- merge(x = indicadores_bd_td,
          "supers_ind10_oportunidad_entrega_reporte_info_hos" = "Indicador10: Oportunidad en la entrega del reporte de información en Cumplimiento de la Circular Única o norma que la sustituya.")
 ```
 
-### 3.4.4. Ajuste de los NAs
+### 3.4.4. Ajuste de las variables tipo factor
 
 ```{r}
 # Bien porque si no tiene información es como si no cumpliera
@@ -1490,6 +1499,7 @@ write.csv(indicadores_bd_td, file = "indicadores_bd_td_con_na.csv", row.names = 
 ## 3.5. Reserva
 
 ```{r}
-indicadores_reserva <- indicadores_bd_td
+#indicadores_reserva <- indicadores_bd_td
+apply(is.na(indicadores_reserva), 2, cantyprop_nas)
 ```
 
