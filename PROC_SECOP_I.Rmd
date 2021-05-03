@@ -597,6 +597,12 @@ datatable(SECOP_I %>% filter(cuantia_contrato <=  1000000 ) %>%
 
 ```
 
+eliminar los contratos de sumas menores a 1 millón de pesos
+
+```{r}
+SECOP_I <- SECOP_I %>% filter(cuantia_contrato >= 1000000)
+```
+
 
 GUARDAR BD 
 ```{r}

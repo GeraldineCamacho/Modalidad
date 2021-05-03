@@ -1598,9 +1598,66 @@ indicadores_bd_td <- merge(indicadores_bd_td,
       all.x = TRUE)
 ```
 
-### Cuántos contratos hay cercanos a la mínima cuantía
+### Cuántos contratos por contratista hay?
 
 ```{r}
+SECOP_I %>% count(id_contratista, sort = TRUE)
+```
 
+
+Consulta random de cómo quiero el dataset, esto toca aplicarlo a la columa correcta de la cantidad de contratos en los indicadores de geraldine
+
+```{r}
+SECOP_I %>% 
+  group_by(nombre_entidad) %>% 
+  summarise(indba_ptr_cantidad_contratistas_hos = n_distinct(id_contratista))
+```
+
+
+```{r}
+repitencia_contratista <- SECOP_I %>% count(nombre_entidad, id_contratista) %>% 
+  rename(indba_ptr_repitencia_contratista_hos = n) %>% 
+  dplyr::select(-id_contratista) %>% 
+  group_by(nombre_entidad) %>% 
+  top_n(n =1, wt = indba_ptr_repitencia_contratista_hos) %>% 
+  unique()
+
+head(repitencia_contratista)
+```
+
+unir la repitencia contratista con la cantidad de contratos por cada contratista en promedio
+
+```{r}
+ptr_contratistas <- merge(repitencia_contratista,
+                          SECOP_I %>% 
+                            group_by(nombre_entidad) %>% 
+                            summarise(indba_ptr_cantidad_contratistas_hos = n_distinct(id_contratista)),
+                          by = "nombre_entidad"
+                          )
+```
+
+
+```{r}
+SECOP_I %>% count(nombre_entidad, id_contratista) %>% 
+  rename(contador = n) %>%
+  filter(nombre_entidad == "AMAZONAS - E.S.E. HOSPITAL SAN RAFAEL DE LETICIA") %>% 
+  arrange(desc(contador))
+#  dplyr::select(-id_contratista)
+```
+# unir ptr_contratistas con la base de datos
+
+```{r}
+indicadores_bd_td <- merge(indicadores_bd_td,
+      ptr_contratistas,
+      by = "nombre_entidad",
+      all.x = TRUE,
+      all.y = FALSE)
+```
+
+crear indicador de contatos por contratista (queda de tarea)
+
+```{r}
+indicadores_bd_td %>%
+  mutate(indba_ptr_contratos_contratista = indba_)
 ```
 
