@@ -1,4 +1,4 @@
----
+ ---
 title: "Limpieza de la base de datos SECOP I para IPS Públicas"
 author: "Yilber Erazo - Geraldine Camacho"
 output:
@@ -173,6 +173,7 @@ Se retiran los contratos que no registran año de firma
 
 ```{r}
 SECOP_I <- SECOP_I %>% filter(!(is.na(anno_firma)))
+SECOP_I <- SECOP_I %>% filter(!(is.na(anno_cargue)))
 ```
 
 Ahora se retiran contratos donde año de cargue > año de firma
@@ -189,7 +190,7 @@ Con este filtro se retiran `r dim(fecha_mal)[1]` contratos que suman un valor to
 
 ```{r}
 #esto no se ha corrido
-SECOP_I <- SECOP_I %>% filter(!(anno_cargue > anno_firma))
+#SECOP_I <- SECOP_I %>% filter(!(anno_cargue > anno_firma))
 ```
 
 sacar una columna para los departamentos de ejecución
@@ -199,6 +200,8 @@ sacar una columna para los departamentos de ejecución
   depto_entidad <- str_sub(string = SECOP_I$municipio_ejecucion, 
                start = 1L, 
                end = str_locate(string = SECOP_I$municipio_ejecucion, pattern = "-")[,1]-2)
+
+SECOP_I$departamento_ejecucion <- depto_entidad
 ```
 
 Unir los deptos y los municipios para generar la llave de union
