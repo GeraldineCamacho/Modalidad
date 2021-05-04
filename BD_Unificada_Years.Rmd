@@ -1489,6 +1489,39 @@ indicadores_bd_td <- indicadores_bd_td %>%
 "ins_cobertura_del_regimen_subsidiado_2015_dto"))
 ```
 
+## 3.5. Info contratistas
+
+```{r}
+repitencia_contratista <- SECOP_I %>% count(nombre_entidad, id_contratista) %>% 
+  rename(indba_ptr_repitencia_contratista_hos = n) %>% 
+  dplyr::select(-id_contratista) %>% 
+  group_by(nombre_entidad) %>% 
+  top_n(n =1, wt = indba_ptr_repitencia_contratista_hos) %>% 
+  unique()
+
+head(repitencia_contratista %>% arrange(desc(indba_ptr_repitencia_contratista_hos)))
+```
+
+Unir la repitencia contratista con la cantidad de contratos por cada contratista en promedio
+
+```{r}
+ptr_contratistas <- merge(repitencia_contratista,
+                          SECOP_I %>% 
+                            group_by(nombre_entidad) %>% 
+                            summarise(indba_ptr_cantidad_contratistas_hos = n_distinct(id_contratista)),
+                          by = "nombre_entidad"
+                          )
+```
+
+Unir ptr_contratistas con la base de datos
+
+```{r}
+indicadores_bd_td <- merge(indicadores_bd_td,
+      ptr_contratistas,
+      by = "nombre_entidad",
+      all.x = TRUE,
+      all.y = FALSE)
+```
 
 Escribir el .csv con los Nas
 
@@ -1496,10 +1529,21 @@ Escribir el .csv con los Nas
 write.csv(indicadores_bd_td, file = "indicadores_bd_td_con_na.csv", row.names = TRUE)
 ```
 
-## 3.5. Reserva
+## 3.6. Reserva
 
 ```{r}
 #indicadores_reserva <- indicadores_bd_td
 apply(is.na(indicadores_reserva), 2, cantyprop_nas)
+```
+
+Prueba
+
+```{r}
+names(indicadores_reserva) %in% names(indicadores_bd_td)
+```
+Base de datos borrador
+
+```{r}
+indicadores_bd_td %>% dplyr::select(c(nombre_entidad, 59:ncol(indicadores_bd_td)))
 ```
 
