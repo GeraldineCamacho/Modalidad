@@ -1459,6 +1459,8 @@ indicadores_bd_td[supers_ind2_efectividad_en_auditoria_hos == "NO APLICA", super
 
 indicadores_bd_td$supers_ind2_efectividad_en_auditoria_hos[is.na(indicadores_bd_td$supers_ind2_efectividad_en_auditoria_hos)] <- "0"
 
+indicadores_bd_td$supers_ind10_oportunidad_entrega_reporte_info_hos[is.na(indicadores_bd_td$supers_ind10_oportunidad_entrega_reporte_info_hos)] <- "0"
+
 indicadores_bd_td$supers_ind2_efectividad_en_auditoria_hos <- as.numeric(indicadores_bd_td$supers_ind2_efectividad_en_auditoria_hos)
 
 head(indicadores_bd_td)

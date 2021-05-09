@@ -311,8 +311,8 @@ Columnas que no se tienen en cuenta
 ```{r}
 variables_no_necesarias <- c(
   "nombre_entidad",
-  "cod_entidad",
-  "cod_departamento",
+#  "cod_entidad",
+#  "cod_departamento",
   "nit_entidad",
   "municipio_entidad",
   "depto_mun"
@@ -320,9 +320,9 @@ variables_no_necesarias <- c(
 
 variables_info_directa <- c(
   # Indicadores iniciales
- "indba_perc_cerrada_num_hos" ,
- "indba_perc_cerrada_val_hos",
- "indba_perc_direc_val_hos",
+ "indba_ptr_perc_cerrada_num_hos" ,
+ "indba_ptr_perc_cerrada_val_hos",
+ "indba_ptr_perc_direc_val_hos",
   # Fin de año (finyr)
   "indba_contr_finyr_directa_dto",
   "indba_prop_contr_finyr_dto",
@@ -340,8 +340,8 @@ indicadores_clas <- indicadores_clas %>%
 
 #crear los rangos
 indicadores_clas <- indicadores_clas %>% 
-  mutate(riesgo = case_when(indba_perc_cdirec_num_hos <= 25 ~ "Bajo o moderado",
-                            indba_perc_cdirec_num_hos <= 55 ~ "Medio",
+  mutate(riesgo = case_when(indba_ptr_perc_cdirec_num_hos <= 25 ~ "Bajo o moderado",
+                            indba_ptr_perc_cdirec_num_hos <= 55 ~ "Medio",
                             TRUE ~ "Alto"))
 ```
 
@@ -353,7 +353,7 @@ Calcular los cuartiles y graficar
 
 
 # hacer histograma con la distribucion de los cuartiles
-ggplot(indicadores_clas, aes(indba_perc_cdirec_num_hos)) + 
+ggplot(indicadores_clas, aes(indba_ptr_perc_cdirec_num_hos)) + 
   geom_histogram(col = "white", fill = "gray", aes(y = ..density..)) + 
   geom_density(col = "blue") + 
   geom_vline(xintercept = cartiles[2], color = "red") +
@@ -372,7 +372,7 @@ ggplot(indicadores_clas, aes(indba_perc_cdirec_num_hos)) +
 Eliminar el porcentaje de contratacion directa
 
 ```{r}
-indicadores_clas$indba_perc_cdirec_num_hos <- NULL
+indicadores_clas$indba_ptr_perc_cdirec_num_hos <- NULL
 
 #indicadores_clas$indba_contr_finyr_directa_dto <- NULL
 #indicadores_clas$indba_contr_finyr_directa_hos <- NULL
@@ -444,8 +444,8 @@ print(bor)
 attStats(boruta)
 
 #get variable
-not_rejected <- getNonRejectedFormula(boruta)
-confirmed <- getConfirmedFormula(boruta)
+not_rejected_nd <- getNonRejectedFormula(boruta)
+confirmed_nd <- getConfirmedFormula(boruta)
 ```
 
 
@@ -465,7 +465,7 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>% 
+indicadores_clas_rec <- recipe(not_rejected_nd, data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
@@ -716,6 +716,33 @@ Seleccionar
 ```{r}
 # Suma total
 importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+  group_by(fin) %>% 
+  summarise(total = sum(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = reorder(fin, total), y = total), stat = "identity") +
+      coord_flip() +
+      labs(x = "Nivel del indicador",
+           y = "Importancia",
+           title = "Importancia total de los niveles")+
+      theme(plot.title = element_text(hjust = 0.5))
+
+# Suma media
+importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+  group_by(fin) %>% 
+  summarise(total = mean(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = reorder(fin, total), y = total), stat = "identity") +
+      coord_flip() +
+      labs(x = "Nivel del indicador",
+           y = "Importancia",
+           title = "Importancia media de los niveles")+
+      theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+Ver por patron o por indicador
+```{r}
+importantes_clas %>% filter() %>% 
   group_by(fin) %>% 
   summarise(total = sum(importancia)) %>% 
   ggplot() +
