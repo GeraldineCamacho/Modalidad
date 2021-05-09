@@ -643,7 +643,8 @@ rf_importacia_clas <- tibble(variable = names(ranger_obj_clas$variable.importanc
 
 
 importantes_clas <- data.frame(rf_importacia_clas %>% 
-                             mutate(variable = forcats::fct_reorder(variable, importancia)) %>% 
+                             mutate(variable = forcats::fct_reorder(variable, importancia),
+                                    variable = as.character(variable)) %>% 
                             arrange(desc(importancia)))
 
 importantes_clas
@@ -740,30 +741,12 @@ importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>%
 ```
 
 
-Ver por patron o por indicador
-```{r}
-importantes_clas %>% filter() %>% 
-  group_by(fin) %>% 
-  summarise(total = sum(importancia)) %>% 
-  ggplot() +
-      geom_bar(aes(x = reorder(fin, total), y = total), stat = "identity") +
-      coord_flip() +
-      labs(x = "Nivel del indicador",
-           y = "Importancia",
-           title = "Importancia total de los niveles")+
-      theme(plot.title = element_text(hjust = 0.5))
+Ver por patron o por indicador (el problema es que solo quedan 14 variables con id o ptr)
 
-# Suma media
-importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
-  group_by(fin) %>% 
-  summarise(total = mean(importancia)) %>% 
-  ggplot() +
-      geom_bar(aes(x = reorder(fin, total), y = total), stat = "identity") +
-      coord_flip() +
-      labs(x = "Nivel del indicador",
-           y = "Importancia",
-           title = "Importancia media de los niveles")+
-      theme(plot.title = element_text(hjust = 0.5))
+```{r}
+
+importantes_clas %>% filter(grepl("indba",variable)) %>% 
+  
 ```
 
 
