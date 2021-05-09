@@ -1544,6 +1544,19 @@ names(indicadores_reserva) %in% names(indicadores_bd_td)
 Base de datos borrador
 
 ```{r}
-indicadores_bd_td %>% dplyr::select(c(nombre_entidad, 59:ncol(indicadores_bd_td)))
+names(indicadores_bd_td %>% dplyr::select(c(nombre_entidad, 59:ncol(indicadores_bd_td))))
+```
+
+# unir la nueva base de indicadores
+
+```{r}
+indicadores_bd_td <- merge(indicadores,
+      indicadores_bd_td %>% dplyr::select(c(nombre_entidad, 59:ncol(indicadores_bd_td))),
+      by = "nombre_entidad",
+      all.x = TRUE,
+      all.y = FALSE
+      )
+
+names(indicadores_bd_td)
 ```
 
