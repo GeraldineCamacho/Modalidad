@@ -249,6 +249,33 @@ SECOP_I <- read_delim(file = "SECOP_IPS_LIMPIA.csv", delim = ";")
 
 ```
 
+Leer la base de datos limpia versión 2
+
+```{r}
+SECOP_I_2 <- read_delim("SECOP_IPS_LIMPIA_2.csv", delim = ";")
+
+head(SECOP_I_2)
+```
+
+Agregar columna del departamento ejecución
+
+```{r}
+  # Con este parte del codigo extraigo el departamento de ejecución
+depto_entidad <- str_sub(string = SECOP_I_2$municipio_ejecucion, 
+               start = 1L, 
+               end = str_locate(string = SECOP_I_2$municipio_ejecucion, pattern = "-")[,1]-2)
+
+SECOP_I_2$departamento_ejecucion <- depto_entidad
+```
+
+Corregir formato de fecha en SECOP_I_2
+
+```{r}
+#Pasar a formato fecha
+SECOP_I_2$fecha_cargue_secop <- as.Date(SECOP_I_2$fecha_cargue_secop, "%m/%d/%y")
+```
+
+
 Convertir SECOP_I en data table
 ```{r}
 SECOP_I<- as.data.table(SECOP_I)
