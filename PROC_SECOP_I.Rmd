@@ -228,7 +228,6 @@ secop_directa <- SECOP_I %>%
   filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)")
 ```
 
-
 Escribir la base de datos
 
 ```{r}
@@ -275,6 +274,20 @@ Corregir formato de fecha en SECOP_I_2
 SECOP_I_2$fecha_cargue_secop <- as.Date(SECOP_I_2$fecha_cargue_secop, "%m/%d/%y")
 ```
 
+crear la base de datos de secop directa
+
+```{r}
+secop_directa <- SECOP_I_2 %>% 
+  filter(tipo_proceso == "Contratación Directa (Ley 1150 de 2007)")
+```
+
+Escribir la base de datos
+
+```{r}
+fwrite(SECOP_I_2, file = "SECOP_IPS_LIMPIA.csv", 
+       sep = ";", 
+       row.names = FALSE)
+```
 
 Convertir SECOP_I en data table
 ```{r}
