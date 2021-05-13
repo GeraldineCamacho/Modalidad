@@ -1488,6 +1488,8 @@ indicadores_bd_td <- indicadores_bd_td %>%
 
 ## 3.5. Info contratistas
 
+Repitencia de los contratistas
+
 ```{r}
 repitencia_contratista <- SECOP_I_2 %>% count(nombre_entidad, id_contratista) %>% 
   rename(indba_ptr_repitencia_contratista_hos = n) %>% 
@@ -1499,15 +1501,24 @@ repitencia_contratista <- SECOP_I_2 %>% count(nombre_entidad, id_contratista) %>
 head(repitencia_contratista %>% arrange(desc(indba_ptr_repitencia_contratista_hos)))
 ```
 
-Unir la repitencia contratista con la cantidad de contratos por cada contratista en promedio
+Unir la repitencia contratista con la cantidad de contratistas por cada hospital por año
 
 ```{r}
 ptr_contratistas <- merge(repitencia_contratista,
                           SECOP_I_2 %>% 
-                            group_by(nombre_entidad) %>% 
-                            summarise(indba_ptr_cantidad_contratistas_hos = n_distinct(id_contratista)),
+  group_by(nombre_entidad, anno_firma) %>% 
+  summarise(indba_ptr_cantidad_contratistas_hos = n_distinct(id_contratista)) %>% 
+  mutate(indicador_annio = str_c("indba_ptr_cantidad_contratistas", anno_firma, "hos", sep = "_")) %>% 
+  dplyr::select(nombre_entidad, indicador_annio, indba_ptr_cantidad_contratistas_hos) %>% 
+  pivot_wider(names_from = indicador_annio, values_from = indba_ptr_cantidad_contratistas_hos),
                           by = "nombre_entidad"
-                          )
+                          ) %>% 
+  dplyr::select(-indba_ptr_cantidad_contratistas_2014_hos)
+
+head(ptr_contratistas)
+
+# ver las cantidades y proporciones de Nas
+apply(is.na(ptr_contratistas), 2, cantyprop_nas)
 ```
 
 Unir ptr_contratistas con la base de datos
@@ -1519,6 +1530,65 @@ indicadores_bd_td <- merge(indicadores_bd_td,
                            all.x = TRUE,
                            all.y = FALSE)
 ```
+
+Calcular en a cada contratista aproximadamente cuántos contratos le corresponden y el valor medio de los contratos por contratista
+
+```{r}
+indicadores_bd_td <- indicadores_bd_td %>% 
+  mutate( #Contratos por contratista
+    indba_idr_contratos_por_contratista_2015_hos = indba_ptr_total_cont_2015_hos / indba_ptr_cantidad_contratistas_2015_hos,
+    indba_idr_contratos_por_contratista_2016_hos = indba_ptr_total_cont_2016_hos / indba_ptr_cantidad_contratistas_2016_hos,
+    indba_idr_contratos_por_contratista_2017_hos = indba_ptr_total_cont_2017_hos / indba_ptr_cantidad_contratistas_2017_hos,
+    indba_idr_contratos_por_contratista_2018_hos = indba_ptr_total_cont_2018_hos / indba_ptr_cantidad_contratistas_2018_hos,
+    indba_idr_contratos_por_contratista_2019_hos = indba_ptr_total_cont_2019_hos / indba_ptr_cantidad_contratistas_2019_hos,
+         #Valor de los contratos por contratista
+    indba_idr_valor_contratos_por_contratista_2015_hos = indba_ptr_valor_total_2015_hos / indba_ptr_cantidad_contratistas_2015_hos, 
+    indba_idr_valor_contratos_por_contratista_2016_hos = indba_ptr_valor_total_2016_hos / indba_ptr_cantidad_contratistas_2016_hos,
+    indba_idr_valor_contratos_por_contratista_2017_hos = indba_ptr_valor_total_2017_hos / indba_ptr_cantidad_contratistas_2017_hos,
+    indba_idr_valor_contratos_por_contratista_2018_hos = indba_ptr_valor_total_2018_hos / indba_ptr_cantidad_contratistas_2018_hos,
+    indba_idr_valor_contratos_por_contratista_2019_hos = indba_ptr_valor_total_2019_hos / indba_ptr_cantidad_contratistas_2019_hos
+    )
+```
+
+
+diferencia entre la fehca de firma y la fecha en la que se subió el contrato
+
+```{r}
+SECOP_I_2 %>%
+  group_by(nombre_entidad, anno_firma) %>% 
+  summarise(indba_ptr_dif_fechas_cargue_firma = as.numeric(mean(fecha_cargue_secop - fecha_firma_contrato))) %>%
+  mutate(indicador_annio = str_c("indba_ptr_dif_fechas_cargue_firma", anno_firma, "hos", sep = "_")) %>% 
+  dplyr::select(nombre_entidad, indicador_annio, indba_ptr_dif_fechas_cargue_firma) %>% 
+  pivot_wider(names_from = indicador_annio, values_from = indba_ptr_dif_fechas_cargue_firma) %>% 
+  dplyr::select(-indba_ptr_dif_fechas_cargue_firma_2014_hos)
+
+# Ver la cantidad de NAS
+apply(is.na(SECOP_I_2 %>%
+  group_by(nombre_entidad, anno_firma) %>% 
+  summarise(indba_ptr_dif_fechas_cargue_firma = as.numeric(mean(fecha_cargue_secop - fecha_firma_contrato))) %>%
+  mutate(indicador_annio = str_c("indba_ptr_dif_fechas_cargue_firma", anno_firma, "hos", sep = "_")) %>% 
+  dplyr::select(nombre_entidad, indicador_annio, indba_ptr_dif_fechas_cargue_firma) %>% 
+  pivot_wider(names_from = indicador_annio, values_from = indba_ptr_dif_fechas_cargue_firma)%>% 
+  dplyr::select(-indba_ptr_dif_fechas_cargue_firma_2014_hos)), 2, cantyprop_nas)
+
+```
+Hacer el merge de las diferencias de fechas con indicadores_bd_td
+
+```{r}
+indicadores_bd_td <- merge(indicadores_bd_td,
+                           SECOP_I_2 %>%
+                             group_by(nombre_entidad, anno_firma) %>%
+                             summarise(indba_ptr_dif_fechas_cargue_firma = as.numeric(mean(fecha_cargue_secop - fecha_firma_contrato))) %>%
+                             mutate(indicador_annio = str_c("indba_ptr_dif_fechas_cargue_firma", anno_firma, "hos", sep = "_")) %>% 
+                             dplyr::select(nombre_entidad, indicador_annio, indba_ptr_dif_fechas_cargue_firma) %>% 
+                             pivot_wider(names_from = indicador_annio, values_from = indba_ptr_dif_fechas_cargue_firma) %>% 
+
+                             dplyr::select(-indba_ptr_dif_fechas_cargue_firma_2014_hos),
+                           by = "nombre_entidad",
+                           all.x = TRUE,
+                           all.y = FALSE)
+```
+
 
 Escribir el .csv con los Nas
 
