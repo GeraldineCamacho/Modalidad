@@ -1136,6 +1136,21 @@ entidades <- merge(entidades, deptos,
 sapply(entidades, function(x) sum(is.na(x)))
 ```
 
+Renombrar las variables de la base entidades que se van a utilizar
+
+```{r}
+entidades <- entidades %>% 
+  rename("indba_ptr_contratos_minima_cuantia_hos" = indba_contratos_minima_cuantia_hos,
+         "indba_ptr_prop_contr_minima_cuantia_hos" = indba_prop_contr_minima_cuantia_hos,
+         "indba_ptr_valor_contratos_minima_cuantia_hos" = indba_valor_contratos_minima_cuantia_hos,
+         "indba_ptr_prop_val_minima_cuantia_hos" = indba_prop_val_minima_cuantia_hos,
+         "indba_ptr_contratos_minima_cuantia_dto" = indba_contratos_minima_cuantia_dto,
+         "indba_ptr_prop_contr_minima_cuantia_dto" = indba_prop_contr_minima_cuantia_dto,
+         "indba_ptr_valor_contratos_minima_cuantia_dto" = indba_valor_contratos_minima_cuantia_dto,
+         "indba_ptr_prop_val_minima_cuantia_dto" = indba_prop_val_minima_cuantia_dto,
+         "indba_ptr_contratos_adiciones_hos" = indba_contratos_adiciones_hos)
+```
+
 Crear el csv
 
 ```{r}
@@ -1231,19 +1246,6 @@ hospitales_finyr <- merge(hospitales_finyr,
 
 ### 3.3.3. Intentar merge de entidades (hospitales) con indicadores_bd_td y luego con hospitales_finyr
 
-Renombrar las variables de la base entidades que se van a utilizar
-
-```{r}
-entidades %>% rename("indba_ptr_contratos_minima_cuantia_hos" = indba_contratos_minima_cuantia_hos,
-                     "indba_ptr_prop_contr_minima_cuantia_hos" = indba_prop_contr_minima_cuantia_hos,
-                     "indba_ptr_valor_contratos_minima_cuantia_hos" = indba_valor_contratos_minima_cuantia_hos,
-                     "indba_ptr_prop_val_minima_cuantia_hos" = indba_prop_val_minima_cuantia_hos,
-                     "indba_ptr_contratos_minima_cuantia_dto" = indba_contratos_minima_cuantia_dto,
-                     "indba_ptr_prop_contr_minima_cuantia_dto" = indba_prop_contr_minima_cuantia_dto,
-                     "indba_ptr_valor_contratos_minima_cuantia_dto" = indba_valor_contratos_minima_cuantia_dto,
-                     "indba_ptr_prop_val_minima_cuantia_dto" = indba_prop_val_minima_cuantia_dto,
-                     "indba_ptr_contratos_adiciones_hos" = indba_contratos_adiciones_hos)
-```
 
 Entre entidades e indicadores_bd_td
 
