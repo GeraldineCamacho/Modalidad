@@ -474,7 +474,9 @@ indicadores_clas_rec <- recipe(not_rejected_nd, data = indicadores_clas) %>%
 
 prop.table(table(indicadores_clas$riesgo))
 
-#indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
+names(indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL))
+
+indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
 ```
 
 
@@ -740,19 +742,150 @@ importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>%
       theme(plot.title = element_text(hjust = 0.5))
 ```
 
-
-Ver por patron o por indicador (el problema es que solo quedan 14 variables con id o ptr)
+Importancia por cada año del que se tienen datos (si la variable no se dividió por años entonces no se tiene en cuenta)
 
 ```{r}
+# importancia total de los años
+importantes_clas %>% 
+  mutate(variable = gsub("_1_", "un", variable),
+         annio = parse_number(variable),
+         annio = as.character(annio)) %>%
+  mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
+  group_by(annio) %>% 
+  summarise(importancia_annio = sum(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = fct_reorder(annio, importancia_annio), y = importancia_annio), stat = "identity") +
+      coord_flip() +
+      labs(x = "Año del indicador",
+           y = "Importancia",
+           title = "Importancia total de los años")+
+      theme(plot.title = element_text(hjust = 0.5))
 
-importantes_clas %>% filter(grepl("indba",variable)) %>% 
-  
+# Importancia media de los años
+importantes_clas %>% 
+  mutate(variable = gsub("_1_", "un", variable),
+         annio = parse_number(variable),
+         annio = as.character(annio)) %>%
+  mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
+  group_by(annio) %>% 
+  summarise(importancia_annio = mean(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = fct_reorder(annio, importancia_annio), y = importancia_annio), stat = "identity") +
+      coord_flip() +
+      labs(x = "Año del indicador",
+           y = "Importancia",
+           title = "Importancia media de los años")+
+      theme(plot.title = element_text(hjust = 0.5))
 ```
 
 
-ver si hay nas
+## Hacer pca y umap para agrupar
+
+Datos
+
+```{r}
+indicadores_clas_varfin <- indicadores_clas %>% 
+  dplyr::select(departamento_entidad,
+                names(indicadores_clas_rec %>%
+                        prep() %>%
+                        bake(new_data =  NULL) %>%
+                        dplyr::select(-c(departamento_entidad_Antioquia,
+                                         departamento_entidad_Boyacá,
+                                         departamento_entidad_Cundinamarca,
+                                         departamento_entidad_Nariño,
+                                         departamento_entidad_Santander,
+                                         departamento_entidad_Tolima,
+                                         departamento_entidad_Valle.del.Cauca,
+                                         departamento_entidad_other)
+                                      )
+                      )
+                ) %>% 
+  merge(indicadores_bd_td %>% dplyr::select(nombre_entidad, indba_ptr_valora_total_hos)) #%>% 
+#  dplyr::select(-departamento_entidad)
+#%>%
+#  mutate(departamento_entidad = case_when(departamento_entidad != c("Antioquia", "Boyacá", "Cundinamarca", "Nariño", "Santander", "Tolima", "Valle del Cauca") ~ "Other",
+#                                          TRUE ~ departamento_entidad))
+#sapply(indicadores_clas_varfin, function(x) sum(is.na(x)))
+```
+
+### PCA
+
+```{r}
+pca_randomf_rec <- recipe(riesgo ~ ., data = indicadores_clas_varfin) %>%
+  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
+  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
+  step_normalize(all_predictors()) %>%
+  step_pca(all_predictors())
+
+pca_randomf_prep <- prep(pca_randomf_rec)
+
+pca_randomf_prep
+```
+
+Ver los factores 
+
+```{r}
+tidy(pca_randomf_prep, 3) # e número 3 corresponde al tercer paso del recipe
+```
+
+
+Ver los datos
+
+```{r}
+juice(pca_randomf_prep)
+```
+
+Gráfico
+
+```{r}
+juice(pca_randomf_prep) %>%
+  ggplot(aes(PC1, PC2, label = nombre_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL)
+```
+
+### UMAP
+
+```{r}
+umap_randomf_rec <- recipe(riesgo ~ ., data = indicadores_clas_varfin) %>%
+  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
+  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
+  step_normalize(all_predictors()) %>%
+  step_umap(all_predictors())
+
+umap_randomf_prep <- prep(umap_randomf_rec)
+
+umap_randomf_prep
+```
+
+Ver los factores 
+
+```{r}
+tidy(umap_randomf_prep, 3) # e número 3 corresponde al tercer paso del recipe
+```
+
+
+Ver los datos
+
+```{r}
+juice(umap_randomf_prep)
+```
+
+Gráfico
+
+```{r}
+juice(umap_randomf_prep) %>%
+  ggplot(aes(umap_1, umap_2, label = nombre_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL)
+```
+
+
+
+Ver si hay Nas
 
 ```{r}
 sapply(indicadores_bd_td, function(x) sum(is.na(x)))
 ```
-
