@@ -573,7 +573,7 @@ SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?nu
 ```
 
 
-Entre 10 mil millones  50 mil millones
+Entre 20 mil millones  50 mil millones
 
 ```{r}
 datatable(SECOP_I %>% filter(cuantia_contrato >= 20000000000 & cuantia_contrato < 50000000000) %>%
@@ -581,15 +581,56 @@ datatable(SECOP_I %>% filter(cuantia_contrato >= 20000000000 & cuantia_contrato 
 ```
 
 
-estos aún no se han corrido
+Corregidos 67,30%
 
 ```{r}
+# 1
 SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=16-4-4686645", cuantia_contrato := 37900000]
 SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=20-4-10375897", cuantia_contrato := 35210000]
 SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=14-4-3143012", cuantia_contrato := 22140000]
 SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=15-12-3410928", cuantia_contrato := 38850000]
+
+#eliminar este url
+SECOP_I<- SECOP_I %>% 
+  filter(ruta_web != "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9698012")
+
 SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-10171238", cuantia_contrato := 30000000]
-#SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=18-4-8367679", cuantia_contrato := "39000000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=18-4-8367679", cuantia_contrato := "39000000"]
+#2
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=16-12-5172694", cuantia_contrato := "45600000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9895596", cuantia_contrato := "23150000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=16-12-4943670", cuantia_contrato := "29370000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9147638", cuantia_contrato := "40920000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=18-4-8008383", cuantia_contrato := "31060806"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9128677", cuantia_contrato := "22400000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9428778", cuantia_contrato := "28560000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=15-4-4375457", cuantia_contrato := "40000000"]
+#3
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-12-10047431", cuantia_contrato := "31440000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=15-4-4499254", cuantia_contrato := "24500000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=16-12-5917545", cuantia_contrato := "28800000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-12-8905665", cuantia_contrato := "21600000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=14-4-2562934", cuantia_contrato := "22750000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9405450", cuantia_contrato := "40920000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-12-9489430", cuantia_contrato := "32900000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9974280", cuantia_contrato := "30000000"]
+#4
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=16-4-4651217", cuantia_contrato := "20000000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=15-12-3699296", cuantia_contrato := "36450000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-8951933", cuantia_contrato := "21000000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-8913225", valor_adiciones := "46060070"] # Ajuste de una adición que no se estaba teniendo en cuenta
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-8913225", cuantia_contrato := "21980121"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=18-4-8811045", cuantia_contrato := "22662000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=16-4-5773004", cuantia_contrato := "21171440"]
+#5
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=18-4-7718179", cuantia_contrato := "9330000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9948624", cuantia_contrato := "21600000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=19-4-9288960", cuantia_contrato := "24000000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=17-12-7346989", cuantia_contrato := "24000000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=18-4-8098242", cuantia_contrato := "334230134"]
+#6
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=14-4-2607920", cuantia_contrato := "23100000"]
+SECOP_I[ruta_web == "https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia=15-4-4397795", cuantia_contrato := "32623000"]
 ```
 
 
