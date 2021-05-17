@@ -183,7 +183,7 @@ economia_depto <- economia_depto %>%
   mutate(# Ajsutes de escritura
          indicador_annio = tolower(indicador_annio),
          indicador_annio = chartr('ÁÉÍÓÚáéíóú ','AEIOUaeiou_', indicador_annio),
-         indicador_annio = gsub("%", "perc_", indicador_annio),
+         indicador_annio = gsub("%", "perc", indicador_annio),
          indicador_annio = gsub("porcentaje", "perc", indicador_annio),
          indicador_annio = gsub(",", "", indicador_annio),
          indicador_annio = gsub("_de_", "_", indicador_annio),
@@ -205,7 +205,7 @@ economia_depto <- economia_depto %>%
 Unir los indicadores por departamentos a los indicadores de SECOP
 
 ```{r}
-indicadores_bd_td<- merge(indicadores,
+indicadores_bd_td <- merge(indicadores,
                        economia_depto,
                        by.x = "departamento_entidad",
                        by.y = "departamento",
@@ -276,14 +276,6 @@ indicadores_bd_td <- merge(indicadores_bd_td,
 
 apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
 ```
-
-cambiar nombre de indidacor de corrupción
-
-```{r}
-indicadores_bd_td <- indicadores_bd_td %>% 
-  rename("indba_riesgo_corrupcion_hos" = "ind_riesgo_corrupcion_hos")
-```
-
 
 ### 2.1.2. Procesamiento final economía unida
 
@@ -723,7 +715,7 @@ Hacer la tabla, los datos
 
 ```{r}
 #departamentos
-total_contratos <- SECOP_I_2 %>% 
+total_contratos <- SECOP_I %>% 
   group_by(departamento_ejecucion) %>% 
   summarise(contratos = n(),
             valor_contratos = sum(valor_total_con_adiciones),
@@ -747,7 +739,7 @@ cambio_na = function(x){
 }
 
 ## ADICIONES
-contratos_adiciones <- SECOP_I_2 %>% 
+contratos_adiciones <- SECOP_I %>% 
   filter(valor_adiciones > 0) %>% 
   count(departamento_ejecucion) %>% 
   rename("contratos_adiciones" = n)
@@ -779,7 +771,7 @@ deptos <- merge(deptos,
                 all.x = TRUE)
 
 ## MÍNIMA CUANTÍA
-minima_cuantia <- SECOP_I_2 %>% 
+minima_cuantia <- SECOP_I %>% 
   filter(tipo_proceso == "Contratación Mínima Cuantía") %>% 
   group_by(departamento_ejecucion) %>% 
   summarise(contratos_minima_cuantia = n(),
@@ -853,7 +845,7 @@ deptos <- deptos[deptos$departamento_ejecucion != "Colombia", ]
 Datos
 
 ```{r}
-total_contratos <- SECOP_I_2 %>% 
+total_contratos <- SECOP_I %>% 
   group_by(depto_mun) %>% 
   summarise(contratos = n(),
             valor_contratos = sum(valor_total_con_adiciones),
@@ -872,7 +864,7 @@ municipios <- merge(total_contratos,
                                 (contratos_directos / contratos)*100)))
 
 ## ADICIONES
-contratos_adiciones <- SECOP_I_2 %>% 
+contratos_adiciones <- SECOP_I %>% 
   filter(valor_adiciones > 0) %>% 
   count(depto_mun) %>% 
   rename("contratos_adiciones" = n)
@@ -909,7 +901,7 @@ municipios <- merge(municipios,
                 all.x = TRUE)
 
 ## MÍNIMA CUANTÍA
-minima_cuantia <- SECOP_I_2 %>% 
+minima_cuantia <- SECOP_I %>% 
   filter(tipo_proceso == "Contratación Mínima Cuantía") %>% 
   group_by(depto_mun) %>% 
   summarise(contratos_minima_cuantia = n(),
@@ -978,7 +970,7 @@ sapply(municipios, function(x) sum(is.na(x)))
 ### 3.2.3. Entidades hospitales
 
 ```{r}
-total_contratos <- SECOP_I_2 %>% 
+total_contratos <- SECOP_I %>% 
   group_by(nombre_entidad, depto_mun, departamento_entidad) %>% 
   summarise(contratos = n(),
             valor_contratos = sum(valor_total_con_adiciones),
@@ -997,7 +989,7 @@ hospitales <- merge(total_contratos,
                                 (contratos_directos / contratos)*100)))
 
 ## ADICIONES
-contratos_adiciones <- SECOP_I_2 %>% 
+contratos_adiciones <- SECOP_I %>% 
   filter(valor_adiciones > 0) %>% 
   count(nombre_entidad) %>% 
   rename("contratos_adiciones" = n)
@@ -1035,7 +1027,7 @@ hospitales <- merge(hospitales,
                 all.x = TRUE)
 
 ## MÍNIMA CUANTÍA
-minima_cuantia <- SECOP_I_2 %>% 
+minima_cuantia <- SECOP_I %>% 
   filter(tipo_proceso == "Contratación Mínima Cuantía") %>% 
   group_by(nombre_entidad) %>% 
   summarise(contratos_minima_cuantia = n(),
@@ -1165,37 +1157,33 @@ Extraer los datos
 ### 3.3.1. Departamentos
 
 ```{r}
-deptos_finyr <- merge(SECOP_I_2 %>%
-  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
-         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
-         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
-         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
-         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
-  count(departamento_entidad) ,
-secop_directa %>%
-  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
-         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
-         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
-         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
-         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
-  count(departamento_entidad) ,
-by = "departamento_entidad",
-all.x = TRUE
-) %>% rename("indba_contr_finyr_dto" = "n.x",
-             "indba_contr_finyr_directa_dto" = "n.y") 
+deptos_finyr <- SECOP_I %>%
+    filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+             fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
+             fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
+             fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
+             fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
+  count(departamento_entidad, anno_firma) %>%
+  rename("indba_ptr_contr_finyr" = "n") %>% 
+  pivot_longer(cols = indba_ptr_contr_finyr,
+               names_to = "indicador",
+               values_to = "valor") %>% 
+  mutate(indicador = paste(indicador, anno_firma, "dto", sep = "_")) %>% 
+  dplyr::select(-anno_firma) %>% 
+  pivot_wider(names_from = indicador,
+              values_from = valor)
 
 # Cambiar nos NA por ceros
 deptos_finyr <- data.frame(sapply(deptos_finyr, cambio_na))
+
+#ver los nas
+apply(is.na(deptos_finyr), 2, cantyprop_nas)
 
 # pasar a numérico las variables que están como char
 deptos_finyr[, 2:ncol(deptos_finyr)] <- setNames(data.frame(lapply(deptos_finyr[, 2:ncol(deptos_finyr)], as.numeric)), 
                         colnames(deptos_finyr[, 2:ncol(deptos_finyr)]))
 
 head(deptos_finyr)
-
-deptos_finyr <- deptos_finyr %>% 
-  mutate(indba_prop_contr_finyr_dto = as.numeric(sprintf("%.2f", 
-                                                     (indba_contr_finyr_directa_dto / indba_contr_finyr_dto)*100)))
 ```
 
 ### 3.3.2. Hospitales
@@ -1203,35 +1191,35 @@ deptos_finyr <- deptos_finyr %>%
 No se calcula por municipios debido a la falta de datos, por lo que casi siempre los datos para los municipios son los mismos que para los hospitales
 
 ```{r}
-hospitales_finyr <- merge(SECOP_I_2 %>%
-  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
+hospitales_finyr <- SECOP_I %>%
+    filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
          fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
          fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
          fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
          fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
-  count(nombre_entidad, departamento_entidad) ,
-secop_directa %>%
-  filter(fecha_firma_contrato >= as.Date("2015-12-01") & fecha_firma_contrato <= as.Date("2015-12-31") |
-         fecha_firma_contrato >= as.Date("2016-12-01") & fecha_firma_contrato <= as.Date("2016-12-31") |
-         fecha_firma_contrato >= as.Date("2017-12-01") & fecha_firma_contrato <= as.Date("2017-12-31") | 
-         fecha_firma_contrato >= as.Date("2018-12-01") & fecha_firma_contrato <= as.Date("2018-12-31") | 
-         fecha_firma_contrato >= as.Date("2019-12-01") & fecha_firma_contrato <= as.Date("2019-12-31")) %>%
-  count(nombre_entidad) ,
-by = "nombre_entidad",
-all.x = TRUE
-) %>% rename("indba_contr_finyr_hos" = "n.x",
-             "indba_contr_finyr_directa_hos" = "n.y") 
+  count(nombre_entidad, departamento_entidad, anno_firma) %>%
+  rename("indba_ptr_contr_finyr" = "n") %>% 
+  pivot_longer(cols = indba_ptr_contr_finyr,
+               names_to = "indicador",
+               values_to = "valor") %>% 
+  mutate(indicador = paste(indicador, anno_firma, "hos", sep = "_")) %>% 
+  dplyr::select(-anno_firma) %>% 
+  pivot_wider(names_from = indicador,
+              values_from = valor) %>% 
+  dplyr::select(-indba_ptr_contr_finyr_2015_hos) #se elimina 2015 porque tiene NAs en mas del 40% de los datos
 
 # Cambiar nos NA por ceros
 hospitales_finyr <- data.frame(sapply(hospitales_finyr, cambio_na))
+
+#ver los nas
+apply(is.na(hospitales_finyr), 2, cantyprop_nas)
 
 # pasar a numérico las variables que están como char
 hospitales_finyr[, 3:ncol(hospitales_finyr)] <- setNames(data.frame(lapply(hospitales_finyr[, 3:ncol(hospitales_finyr)], as.numeric)), 
                         colnames(hospitales_finyr[, 3:ncol(hospitales_finyr)]))
 
-hospitales_finyr <- hospitales_finyr %>% 
-  mutate(indba_prop_contr_finyr_hos = as.numeric(sprintf("%.2f", 
-                                                     (indba_contr_finyr_directa_hos / indba_contr_finyr_hos)*100)))
+
+head(hospitales_finyr)
 ```
 
 Merge entre finyr deptos y hospitales para tener todos los datos en una sola bd
@@ -1242,6 +1230,9 @@ hospitales_finyr <- merge(hospitales_finyr,
                           by = "departamento_entidad",
                           all.x = TRUE) %>% 
   dplyr::select(-departamento_entidad)
+
+#ver los nas
+apply(is.na(hospitales_finyr), 2, cantyprop_nas)
 ```
 
 ### 3.3.3. Intentar merge de entidades (hospitales) con indicadores_bd_td y luego con hospitales_finyr
@@ -1250,9 +1241,11 @@ hospitales_finyr <- merge(hospitales_finyr,
 Entre entidades e indicadores_bd_td
 
 ```{r}
+#indicadores_bd_td <- indicadores_bd_td[, 1:312]
 # entidades con indicadores_bt_td
 indicadores_bd_td <- merge(indicadores_bd_td,
-                           entidades %>% dplyr::select("indba_ptr_contratos_minima_cuantia_hos",
+                           entidades %>% dplyr::select("indba_nombre_entidad_hos",
+                                                       "indba_ptr_contratos_minima_cuantia_hos",
                                                        "indba_ptr_prop_contr_minima_cuantia_hos",
                                                        "indba_ptr_valor_contratos_minima_cuantia_hos",
                                                        "indba_ptr_prop_val_minima_cuantia_hos",
@@ -1271,6 +1264,7 @@ apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
 Entre los hospitales_finyr y los indicadores_bd_td
 
 ```{r}
+#indicadores_bd_td <- indicadores_bd_td[, 1:321]
 indicadores_bd_td <- merge(indicadores_bd_td,
                            hospitales_finyr,
                            by = "nombre_entidad",
@@ -1300,13 +1294,11 @@ sapply(indicadores_bd_td, function(x) sum(is.na(x)))
 Teniendo la cantidad de contratos a fin de año se puede calcular la proporción que los contratos a fin de año representan en la totalidad del año
 
 ```{r}
-indicadores_bd_td %>% mutate(
-  indba_prop_contr_finyr_total_hos = (indba_contr_finyr_hos / indba_total_cont_hos )*100 ) %>% dplyr::select(nombre_entidad, indba_prop_contr_finyr_total_hos) %>% arrange(desc(indba_prop_contr_finyr_total_hos))
-
-
-# en la base de datos
-indicadores_bd_td <- indicadores_bd_td %>% mutate(
-  indba_prop_contr_finyr_total_hos = (indba_contr_finyr_hos / indba_total_cont_hos )*100)
+indicadores_bd_td <- indicadores_bd_td %>% 
+  mutate(indba_ptr_prop_contr_finyr_2016_hos = (indba_ptr_contr_finyr_2016_hos / indba_ptr_total_cont_2016_hos )*100,
+         indba_ptr_prop_contr_finyr_2017_hos = (indba_ptr_contr_finyr_2017_hos / indba_ptr_total_cont_2017_hos )*100,
+         indba_ptr_prop_contr_finyr_2018_hos = (indba_ptr_contr_finyr_2018_hos / indba_ptr_total_cont_2018_hos )*100,
+         indba_ptr_prop_contr_finyr_2019_hos = (indba_ptr_contr_finyr_2019_hos / indba_ptr_total_cont_2019_hos )*100)
 ```
 
 
@@ -1471,19 +1463,18 @@ Eliminar variables con proporción de Nas superior al 40%
 
 ```{r}
 indicadores_bd_td <- indicadores_bd_td %>% 
-  dplyr::select(-c(
-    #Financiero
-"inf_cantidad_proyectos_2015_mun",
-"inf_valor_proyectos_2018_mun",
-# Salud
-"ins_razon_de_mortalidad_materna_a_42_dias_2014_mun",
-"ins_razon_de_mortalidad_materna_a_42_dias_2015_mun",
-"ins_razon_de_mortalidad_materna_a_42_dias_2016_mun",
-"ins_razon_de_mortalidad_materna_a_42_dias_2017_mun",
-"ins_cobertura_de_vacunacion_dpt_2017_mun",
-"ins_cobertuna_de_vacunacion_triple_viral_2017_mun",
-"ins_cobertura_del_regimen_subsidiado_2014_dto",
-"ins_cobertura_del_regimen_subsidiado_2015_dto"))
+  dplyr::select( -c( #Financiero
+    "inf_cantidad_proyectos_2015_mun",
+    "inf_valor_proyectos_2018_mun",
+    # Salud
+    "ins_razon_de_mortalidad_materna_a_42_dias_2014_mun",
+    "ins_razon_de_mortalidad_materna_a_42_dias_2015_mun",
+    "ins_razon_de_mortalidad_materna_a_42_dias_2016_mun",
+    "ins_razon_de_mortalidad_materna_a_42_dias_2017_mun",
+    "ins_cobertura_de_vacunacion_dpt_2017_mun",
+    "ins_cobertuna_de_vacunacion_triple_viral_2017_mun",
+    "ins_cobertura_del_regimen_subsidiado_2014_dto",
+    "ins_cobertura_del_regimen_subsidiado_2015_dto"))
 ```
 
 ## 3.5. Info contratistas
@@ -1491,12 +1482,14 @@ indicadores_bd_td <- indicadores_bd_td %>%
 Repitencia de los contratistas
 
 ```{r}
-repitencia_contratista <- SECOP_I_2 %>% count(nombre_entidad, id_contratista) %>% 
+repitencia_contratista <- SECOP_I %>% count(nombre_entidad, id_contratista) %>% 
   rename(indba_ptr_repitencia_contratista_hos = n) %>% 
   dplyr::select(-id_contratista) %>% 
   group_by(nombre_entidad) %>% 
   top_n(n =1, wt = indba_ptr_repitencia_contratista_hos) %>% 
   unique()
+
+apply(is.na(repitencia_contratista), 2, cantyprop_nas)
 
 head(repitencia_contratista %>% arrange(desc(indba_ptr_repitencia_contratista_hos)))
 ```
@@ -1505,7 +1498,7 @@ Unir la repitencia contratista con la cantidad de contratistas por cada hospital
 
 ```{r}
 ptr_contratistas <- merge(repitencia_contratista,
-                          SECOP_I_2 %>% 
+                          SECOP_I %>% 
   group_by(nombre_entidad, anno_firma) %>% 
   summarise(indba_ptr_cantidad_contratistas_hos = n_distinct(id_contratista)) %>% 
   mutate(indicador_annio = str_c("indba_ptr_cantidad_contratistas", anno_firma, "hos", sep = "_")) %>% 
@@ -1548,13 +1541,15 @@ indicadores_bd_td <- indicadores_bd_td %>%
     indba_idr_valor_contratos_por_contratista_2018_hos = indba_ptr_valor_total_2018_hos / indba_ptr_cantidad_contratistas_2018_hos,
     indba_idr_valor_contratos_por_contratista_2019_hos = indba_ptr_valor_total_2019_hos / indba_ptr_cantidad_contratistas_2019_hos
     )
+
+# ver las cantidades y proporciones de Nas
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
 ```
 
-
-diferencia entre la fehca de firma y la fecha en la que se subió el contrato
+Diferencia entre la fehca de firma y la fecha en la que se subió el contrato
 
 ```{r}
-SECOP_I_2 %>%
+SECOP_I %>%
   group_by(nombre_entidad, anno_firma) %>% 
   summarise(indba_ptr_dif_fechas_cargue_firma = as.numeric(mean(fecha_cargue_secop - fecha_firma_contrato))) %>%
   mutate(indicador_annio = str_c("indba_ptr_dif_fechas_cargue_firma", anno_firma, "hos", sep = "_")) %>% 
@@ -1563,7 +1558,7 @@ SECOP_I_2 %>%
   dplyr::select(-indba_ptr_dif_fechas_cargue_firma_2014_hos)
 
 # Ver la cantidad de NAS
-apply(is.na(SECOP_I_2 %>%
+apply(is.na(SECOP_I %>%
   group_by(nombre_entidad, anno_firma) %>% 
   summarise(indba_ptr_dif_fechas_cargue_firma = as.numeric(mean(fecha_cargue_secop - fecha_firma_contrato))) %>%
   mutate(indicador_annio = str_c("indba_ptr_dif_fechas_cargue_firma", anno_firma, "hos", sep = "_")) %>% 
@@ -1572,14 +1567,18 @@ apply(is.na(SECOP_I_2 %>%
   dplyr::select(-indba_ptr_dif_fechas_cargue_firma_2014_hos)), 2, cantyprop_nas)
 
 ```
+
 Hacer el merge de las diferencias de fechas con indicadores_bd_td
 
 ```{r}
 indicadores_bd_td <- merge(indicadores_bd_td,
-                           SECOP_I_2 %>%
+                           SECOP_I %>%
                              group_by(nombre_entidad, anno_firma) %>%
-                             summarise(indba_ptr_dif_fechas_cargue_firma = as.numeric(mean(fecha_cargue_secop - fecha_firma_contrato))) %>%
-                             mutate(indicador_annio = str_c("indba_ptr_dif_fechas_cargue_firma", anno_firma, "hos", sep = "_")) %>% 
+                             summarise(indba_ptr_dif_fechas_cargue_firma =
+                                         as.numeric(mean(fecha_cargue_secop - fecha_firma_contrato))) %>%
+                             mutate(indicador_annio = str_c("indba_ptr_dif_fechas_cargue_firma",
+                                                            anno_firma, "hos",
+                                                            sep = "_")) %>% 
                              dplyr::select(nombre_entidad, indicador_annio, indba_ptr_dif_fechas_cargue_firma) %>% 
                              pivot_wider(names_from = indicador_annio, values_from = indba_ptr_dif_fechas_cargue_firma) %>% 
 
@@ -1587,8 +1586,10 @@ indicadores_bd_td <- merge(indicadores_bd_td,
                            by = "nombre_entidad",
                            all.x = TRUE,
                            all.y = FALSE)
-```
 
+# ver las cantidades y proporciones de Nas
+apply(is.na(indicadores_bd_td), 2, cantyprop_nas)
+```
 
 Escribir el .csv con los Nas
 
