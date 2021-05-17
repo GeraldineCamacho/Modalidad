@@ -877,6 +877,7 @@ Importancia por cada año del que se tienen datos (si la variable no se dividió
 # importancia total de los años
 importantes_clas %>% 
   mutate(variable = gsub("_1_", "un", variable),
+         variable = gsub("IC4K", "ICFK", variable),
          annio = parse_number(variable),
          annio = as.character(annio)) %>%
   mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
@@ -893,6 +894,7 @@ importantes_clas %>%
 # Importancia media de los años
 importantes_clas %>% 
   mutate(variable = gsub("_1_", "un", variable),
+         variable = gsub("IC4K", "ICFK", variable),
          annio = parse_number(variable),
          annio = as.character(annio)) %>%
   mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
