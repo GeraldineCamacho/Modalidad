@@ -423,6 +423,24 @@ apply(is.na(indicadores_clas), 2, cantyprop_nas)
 ```
 
 
+## Eliminar algunas variables para volver a correr el boruta
+
+```{r}
+#supersalud
+indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info_hos <- NULL
+indicadores_clas$supers_ind2_efectividad_en_auditoria_hos <- NULL
+#mdm
+indicadores_clas$inmdm_clasificacion_mun <- NULL
+indicadores_clas$inmdm_gestion_ejec_recursos_mun <- NULL
+indicadores_clas$inmdm_gestion_mov_recursos_mun <- NULL 
+indicadores_clas$inmdm_gestion_ord_territorial_mun <- NULL
+indicadores_clas$inmdm_gobno_abierto_transparencia_mun <- NULL
+indicadores_clas$inmdm_ind_ppuntaje_res_2018_mun <- NULL
+indicadores_clas$inmdm_puntaje_gestion_mun <- NULL
+indicadores_clas$inmdm_puntaje_mdm_2018_mun <- NULL
+```
+
+
 ## Feature selection Boruta
 
 ```{r}
@@ -561,7 +579,7 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_clas_rec <- recipe(confirmed_nd, data = indicadores_clas) %>% 
+indicadores_clas_rec <- recipe(not_rejected_nd, data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
@@ -734,6 +752,7 @@ rf_final_model_clas_test
 
 
 ## variables de mayor importancia
+
 ```{r}
 ranger_obj_clas <- pull_workflow_fit(rf_final_model_clas)$fit
 
