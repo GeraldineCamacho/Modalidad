@@ -398,7 +398,6 @@ indicadores_clas <- indicadores_clas %>%
 
 ```
 
-
 ## Imputación de los Na
 
 Crear los datos de muestra
@@ -432,25 +431,6 @@ indicadores_clas <- bake(indicadores_clas_rec_na, new_data = indicadores_clas)
 apply(is.na(indicadores_clas), 2, cantyprop_nas)
 ```
 
-
-## Eliminar algunas variables para volver a correr el boruta
-
-```{r}
-#supersalud
-indicadores_clas$supers_ind10_oportunidad_entrega_reporte_info_hos <- NULL
-indicadores_clas$supers_ind2_efectividad_en_auditoria_hos <- NULL
-#mdm
-indicadores_clas$inmdm_clasificacion_mun <- NULL
-indicadores_clas$inmdm_gestion_ejec_recursos_mun <- NULL
-indicadores_clas$inmdm_gestion_mov_recursos_mun <- NULL 
-indicadores_clas$inmdm_gestion_ord_territorial_mun <- NULL
-indicadores_clas$inmdm_gobno_abierto_transparencia_mun <- NULL
-indicadores_clas$inmdm_ind_ppuntaje_res_2018_mun <- NULL
-indicadores_clas$inmdm_puntaje_gestion_mun <- NULL
-indicadores_clas$inmdm_puntaje_mdm_2018_mun <- NULL
-```
-
-
 ## Feature selection Boruta
 
 ```{r}
@@ -467,110 +447,9 @@ print(bor)
 attStats(boruta)
 
 #get variable
-not_rejected_nd <- getNonRejectedFormula(boruta)
-confirmed_nd <- getConfirmedFormula(boruta)
+not_rejected <- getNonRejectedFormula(boruta)
+confirmed <- getConfirmedFormula(boruta)
 ```
-
-## Hacer pca y umap para agrupar
-
-Datos
-
-```{r}
-indicadores_clas_varfin <- indicadores_clas %>% 
-  dplyr::select(departamento_entidad,
-                names(indicadores_clas_rec %>%
-                        prep() %>%
-                        bake(new_data =  NULL) %>%
-                        dplyr::select(-c(departamento_entidad_Antioquia,
-                                         departamento_entidad_Boyacá,
-                                         departamento_entidad_Cundinamarca,
-                                         departamento_entidad_Nariño,
-                                         departamento_entidad_Santander,
-                                         departamento_entidad_Tolima,
-                                         departamento_entidad_Valle.del.Cauca,
-                                         departamento_entidad_other)
-                                      )
-                      )
-                ) %>% 
-  merge(indicadores_bd_td %>% dplyr::select(nombre_entidad, indba_ptr_valora_total_hos)) %>% 
-#  dplyr::select(-departamento_entidad)
-mutate(departamento_entidad = case_when(departamento_entidad != c("Antioquia", "Boyacá", "Cundinamarca", "Nariño", "Santander", "Tolima", "Valle del Cauca") ~ "Other",
-                                          TRUE ~ as.character(departamento_entidad))) #%>% count(departamento_entidad)
-#sapply(indicadores_clas_varfin, function(x) sum(is.na(x)))
-```
-
-### PCA
-
-```{r}
-pca_randomf_rec <- recipe(riesgo ~ ., data = indicadores_clas_varfin) %>%
-  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
-  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
-  step_normalize(all_predictors()) %>%
-  step_pca(all_predictors())
-
-pca_randomf_prep <- prep(pca_randomf_rec)
-
-pca_randomf_prep
-```
-
-Ver los factores 
-
-```{r}
-tidy(pca_randomf_prep, 3)
-```
-
-Ver los datos
-
-```{r}
-juice(pca_randomf_prep)
-```
-
-Gráfico
-
-```{r}
-juice(pca_randomf_prep) %>%
-  ggplot(aes(PC1, PC2, label = nombre_entidad)) +
-  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
-  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
-  labs(color = NULL)
-```
-
-### UMAP
-
-```{r}
-umap_randomf_rec <- recipe(riesgo ~ ., data = indicadores_clas_varfin) %>%
-  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
-  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
-  step_normalize(all_predictors()) %>%
-  step_umap(all_predictors())
-
-umap_randomf_prep <- prep(umap_randomf_rec)
-
-umap_randomf_prep
-```
-
-Ver los factores 
-
-```{r}
-tidy(umap_randomf_prep, 3)
-```
-
-Ver los datos
-
-```{r}
-juice(umap_randomf_prep)
-```
-
-Gráfico
-
-```{r}
-juice(umap_randomf_prep) %>%
-  ggplot(aes(umap_1, umap_2, label = nombre_entidad)) +
-  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
-  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
-  labs(color = NULL)
-```
-
 
 ## Modelo
 
@@ -908,6 +787,108 @@ importantes_clas %>%
            title = "Importancia media de los años")+
       theme(plot.title = element_text(hjust = 0.5))
 ```
+
+## Hacer pca y umap para agrupar
+
+Datos
+
+```{r}
+indicadores_clas_varfin <- indicadores_clas %>% 
+  dplyr::select(departamento_entidad,
+                names(indicadores_clas_rec %>%
+                        prep() %>%
+                        bake(new_data =  NULL) %>%
+                        dplyr::select(-c(departamento_entidad_Antioquia,
+                                         departamento_entidad_Boyacá,
+                                         departamento_entidad_Cundinamarca,
+                                         departamento_entidad_Nariño,
+                                         departamento_entidad_Santander,
+                                         departamento_entidad_Tolima,
+                                         departamento_entidad_Valle.del.Cauca,
+                                         departamento_entidad_other)
+                                      )
+                      )
+                ) %>% 
+  merge(indicadores_bd_td %>% dplyr::select(nombre_entidad, indba_ptr_valora_total_hos)) %>% 
+#  dplyr::select(-departamento_entidad)
+mutate(departamento_entidad = case_when(departamento_entidad != c("Antioquia", "Boyacá", "Cundinamarca", "Nariño", "Santander", "Tolima", "Valle del Cauca") ~ "Other",
+                                          TRUE ~ as.character(departamento_entidad))) #%>% count(departamento_entidad)
+#sapply(indicadores_clas_varfin, function(x) sum(is.na(x)))
+```
+
+### PCA
+
+```{r}
+pca_randomf_rec <- recipe(riesgo ~ ., data = indicadores_clas_varfin) %>%
+  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
+  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
+  step_normalize(all_predictors()) %>%
+  step_pca(all_predictors())
+
+pca_randomf_prep <- prep(pca_randomf_rec)
+
+pca_randomf_prep
+```
+
+Ver los factores 
+
+```{r}
+tidy(pca_randomf_prep, 3)
+```
+
+Ver los datos
+
+```{r}
+juice(pca_randomf_prep)
+```
+
+Gráfico
+
+```{r}
+juice(pca_randomf_prep) %>%
+  ggplot(aes(PC1, PC2, label = nombre_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL)
+```
+
+### UMAP
+
+```{r}
+umap_randomf_rec <- recipe(riesgo ~ ., data = indicadores_clas_varfin) %>%
+  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
+  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
+  step_normalize(all_predictors()) %>%
+  step_umap(all_predictors())
+
+umap_randomf_prep <- prep(umap_randomf_rec)
+
+umap_randomf_prep
+```
+
+Ver los factores 
+
+```{r}
+tidy(umap_randomf_prep, 3)
+```
+
+Ver los datos
+
+```{r}
+juice(umap_randomf_prep)
+```
+
+Gráfico
+
+```{r}
+juice(umap_randomf_prep) %>%
+  ggplot(aes(umap_1, umap_2, label = nombre_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL)
+```
+
+
 
 Ver si hay Nas
 
