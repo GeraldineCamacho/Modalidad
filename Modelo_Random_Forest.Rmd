@@ -310,7 +310,7 @@ Columnas que no se tienen en cuenta
 
 ```{r}
 variables_no_necesarias <- c(
-#  "nombre_entidad",
+  "nombre_entidad",
   "cod_entidad",
   "cod_departamento",
   "nit_entidad",
@@ -361,17 +361,6 @@ ggplot(indicadores_clas, aes(indba_ptr_perc_cdirec_num_hos)) +
        y = "Densidad") +
   theme_classic() +
   theme(plot.title = element_text(hjust = 0.5))
-```
-
-Prueba con solo indba
-
-```{r}
-indicadores_clas <- indicadores_clas %>% 
-  pivot_longer(cols = !c(nombre_entidad, orden_entidad, departamento_entidad),
-               names_to = "indicador",
-               values_to = "valor") %>% 
-  filter(str_detect(indicador, pattern = "indba")) %>% 
-  pivot_wider(names_from = "indicador", values_from = "valor")
 ```
 
 Eliminar el porcentaje de contratacion directa
@@ -447,8 +436,8 @@ print(bor)
 attStats(boruta)
 
 #get variable
-not_rejected <- getNonRejectedFormula(boruta)
-confirmed <- getConfirmedFormula(boruta)
+not_rejected_nd <- getNonRejectedFormula(boruta)
+confirmed_nd <- getConfirmedFormula(boruta)
 ```
 
 ## Modelo
@@ -456,7 +445,7 @@ confirmed <- getConfirmedFormula(boruta)
 División de los datos en train y test
 
 ```{r}
-indicadores_clas$nombre_entidad <- NULL
+#indicadores_clas$nombre_entidad <- NULL
 set.seed(458)
 indicadores_clas_split <- initial_split(indicadores_clas,
                                         strata = riesgo)
@@ -470,9 +459,9 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_clas_rec <- recipe(riesgo ~ ., data = indicadores_clas) %>% 
+indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
-  step_other(departamento_entidad) %>% 
+  step_other(nombre_entidad, departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
   step_zv(all_numeric()) %>% #creates a specification of a recipe step that will remove variables that contain only a single value.
  step_smote(riesgo)
@@ -628,6 +617,7 @@ rf_val_clas %>% collect_predictions() %>%
 ```
 
 ## Modelo final del random forest
+
 ```{r}
 rf_final_model_clas <- fit(final_workflow_clas, training(indicadores_clas_split))
 rf_final_model_clas
@@ -757,6 +747,12 @@ Importancia por cada año del que se tienen datos (si la variable no se dividió
 importantes_clas %>% 
   mutate(variable = gsub("_1_", "un", variable),
          variable = gsub("IC4K", "ICFK", variable),
+         variable = gsub("_5_", "_cinco_", variable),
+         variable = gsub("ind2", "ind_dos", variable),
+         variable = gsub("_42_", "_cuarentaydos_", variable),
+         variable = gsub("ind10", "ind_diez", variable),
+         variable = gsub("_X0", "", variable),
+         variable = gsub("_X1", "", variable),
          annio = parse_number(variable),
          annio = as.character(annio)) %>%
   mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
@@ -774,6 +770,12 @@ importantes_clas %>%
 importantes_clas %>% 
   mutate(variable = gsub("_1_", "un", variable),
          variable = gsub("IC4K", "ICFK", variable),
+         variable = gsub("_5_", "_cinco_", variable),
+         variable = gsub("ind2", "ind_dos", variable),
+         variable = gsub("_42_", "_cuarentaydos_", variable),
+         variable = gsub("ind10", "ind_diez", variable),
+         variable = gsub("_X0", "", variable),
+         variable = gsub("_X1", "", variable),
          annio = parse_number(variable),
          annio = as.character(annio)) %>%
   mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
