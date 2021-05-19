@@ -425,7 +425,7 @@ apply(is.na(indicadores_clas), 2, cantyprop_nas)
 ```{r}
 # Feature Selection
 set.seed(111)
-boruta <- Boruta(riesgo ~ ., data = indicadores_clas, doTrace = 2, maxRuns = 500)
+boruta <- Boruta(riesgo ~ ., data = indicadores_clas, doTrace = 2, maxRuns = 100)
 print(boruta)
 plot(boruta, las = 2, cex.axis = 0.7)
 plotImpHistory(boruta)
@@ -436,8 +436,8 @@ print(bor)
 attStats(boruta)
 
 #get variable
-not_rejected_nd <- getNonRejectedFormula(boruta)
-confirmed_nd <- getConfirmedFormula(boruta)
+not_rejected_nd_cien <- getNonRejectedFormula(boruta)
+confirmed_nd_cien <- getConfirmedFormula(boruta)
 ```
 
 ## Modelo
@@ -459,9 +459,9 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>% 
+indicadores_clas_rec <- recipe(not_rejected_nd_mil, data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
-  step_other(nombre_entidad, departamento_entidad) %>% 
+  step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
   step_zv(all_numeric()) %>% #creates a specification of a recipe step that will remove variables that contain only a single value.
  step_smote(riesgo)
