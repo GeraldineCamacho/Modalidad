@@ -40,6 +40,8 @@ library(mlbench)
 library(caret)
 #install.packages("randomForest")
 library(randomForest)
+#install.packages("DALEXtra")
+library(DALEXtra) #para dependenci parcial
 ```
 
 # Random Forest por regresión
@@ -559,9 +561,21 @@ rf_val_clas %>% collect_predictions()
 ```
 
 ## Matriz de confusion
+
 ```{r}
 rf_val_clas %>% collect_predictions() %>% conf_mat(riesgo, .pred_class)
 ```
+
+Curva roc
+
+```{r}
+rf_val_clas %>% 
+  collect_predictions() %>%
+  rename(".pred_Bajo_o_moderado" = ".pred_Bajo o moderado") %>% 
+  roc_curve(riesgo, c(.pred_Alto, .pred_Bajo_o_moderado, .pred_Medio)) %>%
+  autoplot()
+```
+
 
 Algunas métricas a partir de la matriz de confusión y otra información de la predicción.
 
@@ -577,13 +591,15 @@ rf_val_clas %>% collect_metrics()
 ```
 
 ```{r}
+rf_val_clas %>% select(riesgo)
+
 # Sensibilidad
 rf_val_clas %>% collect_predictions() %>% sensitivity(riesgo, .pred_class)
 ```
 
 ```{r}
 # Especificidad
-rf_val_clas %>% collect_predictions() %>% specificity(riesgo, .pred_class)
+rf_val_clas %>% collect_predictions() %>% specificity(.riesgo, .pred_class)
 ```
 
 positiva
@@ -890,6 +906,102 @@ juice(umap_randomf_prep) %>%
   labs(color = NULL)
 ```
 
+Gráfico de dependencia parcial
+
+Se emplea la librearia DALEX. Para usar DALEX con tidymodels, primero se crea un "explainer" y luego se usa ese "explainer" para la tarea que se quiere.
+
+```{r}
+#ver el flujo del workflow
+rf_final_fitted <- rf_val_clas$.workflow[[1]]
+predict(rf_final_fitted, indicadores_clas_test[10:15,])
+
+#creación del explainer
+rf_explainer <- explain_tidymodels(
+  rf_final_fitted, #workflow fitted
+  data = dplyr::select(indicadores_clas_train, -riesgo), #datos sin incluir la variable de salida del modelo rf
+  y = indicadores_clas_train$riesgo #variable de salida del rf pero como integer
+)
+```
+
+Gráfico por defecto
+
+```{r}
+rf_pdp_depto <- model_profile(rf_explainer,
+                              variables = "departamento_entidad",
+                              N = NULL)
+
+rf_pdp_finyr_2018 <- model_profile(rf_explainer,
+                              variables = "indba_ptr_contr_finyr_2018_hos",
+                              N = NULL)
+
+rf_pdp_valora <- model_profile(rf_explainer,
+                              variables = "indba_ptr_valora_total_hos",
+                              N = NULL)
+
+
+
+plot(rf_pdp_depto)
+plot(rf_pdp_finyr_2018)
+plot(rf_pdp_valora)
+```
+
+
+Grafico con ggplot2
+
+```{r}
+#extraer los datos de pdp
+as.tibble(rf_pdp_depto$agr_profiles) %>% 
+  rename("label" = "_label_",
+         "x" = "_x_",
+         "y" = "_yhat_") %>% 
+  mutate(label = str_remove(label, "workflow.")) %>% 
+  ggplot(aes(x = x, y = y, color = label)) +
+  geom_bar(stat = "identity", fill = "white") +
+    labs(x = "Cantidad de contratos a final de año 2018",
+       y = "Probabilidad predicha del riesgo",
+       title = "Dependencia parcial",
+       subtitle = "Predicciones modelo Random Forest balanceado con todas las variables")
+
+as.tibble(rf_pdp_depto$agr_profiles) %>% 
+  rename("label" = "_label_",
+         "x" = "_x_",
+         "y" = "_yhat_") %>% 
+  mutate(label = str_remove(label, "workflow.")) %>% 
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  facet_grid(. ~ label) +
+  geom_segment(aes(x = x, xend = x, y = 0, yend = y)) +
+    labs(x = "Departamento",
+       y = "Probabilidad predicha del riesgo",
+       title = "Dependencia parcial",
+       subtitle = "Predicciones modelo Random Forest balanceado con todas las variables") +
+  theme(axis.text.x = element_text( angle = 90))
+  
+as.tibble(rf_pdp_finyr_2018$agr_profiles) %>% 
+  rename("label" = "_label_",
+         "x" = "_x_",
+         "y" = "_yhat_") %>% 
+  mutate(label = str_remove(label, "workflow.")) %>% 
+  ggplot(aes(x = x, y = y, color = label)) +
+  geom_line(size = 1.2, alpha = 0.8) +
+  facet_grid(. ~ label) +
+  labs(x = "Cantidad de contratos a final de año 2018",
+       y = "Probabilidad predicha del riesgo",
+       title = "Dependencia parcial",
+       subtitle = "Predicciones modelo Random Forest balanceado con todas las variables")
+
+as.tibble(rf_pdp_valora$agr_profiles) %>% 
+  rename("label" = "_label_",
+         "x" = "_x_",
+         "y" = "_yhat_") %>% 
+  mutate(label = str_remove(label, "workflow.")) %>% 
+  ggplot(aes(x = x, y = y, color = label)) +
+  geom_line(size = 1.2, alpha = 0.8) +
+  labs(x = "Valor de los contratos",
+       y = "Probabilidad predicha del riesgo",
+       title = "Dependencia parcial",
+       subtitle = "Predicciones modelo Random Forest balanceado con todas las variables")
+```
 
 
 Ver si hay Nas
