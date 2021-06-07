@@ -427,7 +427,7 @@ apply(is.na(indicadores_clas), 2, cantyprop_nas)
 ```{r}
 # Feature Selection
 set.seed(111)
-boruta <- Boruta(riesgo ~ ., data = indicadores_clas, doTrace = 2, maxRuns = 100)
+boruta <- Boruta(riesgo ~ ., data = indicadores_clas, doTrace = 2, maxRuns = 500)
 print(boruta)
 plot(boruta, las = 2, cex.axis = 0.7)
 plotImpHistory(boruta)
@@ -438,8 +438,8 @@ print(bor)
 attStats(boruta)
 
 #get variable
-not_rejected_nd_cien <- getNonRejectedFormula(boruta)
-confirmed_nd_cien <- getConfirmedFormula(boruta)
+not_rejected <- getNonRejectedFormula(boruta)
+confirmed <- getConfirmedFormula(boruta)
 ```
 
 ## Modelo
@@ -461,7 +461,7 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_clas_rec <- recipe(not_rejected_nd_mil, data = indicadores_clas) %>% 
+indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
@@ -569,11 +569,24 @@ rf_val_clas %>% collect_predictions() %>% conf_mat(riesgo, .pred_class)
 Curva roc
 
 ```{r}
-rf_val_clas %>% 
+RF_Curva_ROC_todas_las_variables <- rf_val_clas %>% 
   collect_predictions() %>%
   rename(".pred_Bajo_o_moderado" = ".pred_Bajo o moderado") %>% 
   roc_curve(riesgo, c(.pred_Alto, .pred_Bajo_o_moderado, .pred_Medio)) %>%
-  autoplot()
+  autoplot() +
+  labs(title = "Curva ROC por nivel de riesgo",
+       subtitle = "Random Forest") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+
+RF_Curva_ROC_todas_las_variables
+```
+
+Guardar la imagen
+
+```{r}
+ggsave("RF_Curva_ROC_todas_las_variables.png", 
+       RF_Curva_ROC_todas_las_variables)
 ```
 
 
@@ -591,7 +604,7 @@ rf_val_clas %>% collect_metrics()
 ```
 
 ```{r}
-rf_val_clas %>% select(riesgo)
+#rf_val_clas %>% select(riesgo)
 
 # Sensibilidad
 rf_val_clas %>% collect_predictions() %>% sensitivity(riesgo, .pred_class)
@@ -675,22 +688,37 @@ rf_metric
 ```
 
 Gráfico de las variables más importantes
+
 ```{r}
-importantes_clas %>% 
+RF_importancia_variables_todas_las_variables <-importantes_clas %>% 
+  dplyr::select(-fin) %>% 
   mutate(variable = forcats::fct_reorder(variable, importancia)) %>% 
-   top_n(20) %>% 
+  top_n(20) %>% 
   ggplot(aes(variable, importancia)) + 
   geom_bar(stat = "identity") + 
-  ggtitle("Importancia de los predictores") +
-  coord_flip()
+  labs( title = "Importancia de las variables",
+        x = "Variable",
+        y = "Importancia") +
+  coord_flip() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+RF_importancia_variables_todas_las_variables
 ```
+
+Guardar imagen
+
+```{r}
+ggsave("RF_importancia_variables_todas_las_variables.png",
+       RF_importancia_variables_todas_las_variables)
+```
+
 
 ## Gráfico con los importantes por subcategoría
 
 Hacer un gráfico mostrando la suma total de la importancia de las categorías de los indicadores que se tuvieron en cuenta.
 ```{r}
 # Total
-separate(data = importantes_clas,
+RF_Importancia_subcategorias_total_todas_las_variables <- separate(data = importantes_clas,
          col = variable,
          into = "inicio",
          sep = "_") %>% 
@@ -705,7 +733,7 @@ separate(data = importantes_clas,
     theme(plot.title = element_text(hjust = 0.5))
 
 # Promedio
-separate(data = importantes_clas,
+RF_Importancia_subcategorias_media_todas_las_variables <- separate(data = importantes_clas,
          col = variable,
          into = "inicio",
          sep = "_") %>% 
@@ -718,8 +746,23 @@ separate(data = importantes_clas,
          y = "Importancia",
          title = "Importancia media de las subcategorías")+
     theme(plot.title = element_text(hjust = 0.5))
-    
+ 
+RF_Importancia_subcategorias_total_todas_las_variables
+RF_Importancia_subcategorias_media_todas_las_variables   
 ```
+
+Guadar imagenes
+
+```{r}
+# Total
+ggsave("RF_Importancia_subcategorias_total_todas_las_variables.png",
+       RF_Importancia_subcategorias_total_todas_las_variables)
+
+# Media
+ggsave("RF_Importancia_subcategorias_media_todas_las_variables.png",
+       RF_Importancia_subcategorias_media_todas_las_variables)
+```
+
 
 Seleccionar si es por hospital, municipio o departamento
 
@@ -732,7 +775,8 @@ Seleccionar
 
 ```{r}
 # Suma total
-importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+RF_Importancia_niveles_total_todas_las_variables <- importantes_clas %>%
+  filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = sum(importancia)) %>% 
   ggplot() +
@@ -744,7 +788,8 @@ importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>%
       theme(plot.title = element_text(hjust = 0.5))
 
 # Suma media
-importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+RF_Importancia_niveles_media_todas_las_variables <- importantes_clas %>%
+  filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = mean(importancia)) %>% 
   ggplot() +
@@ -754,13 +799,27 @@ importantes_clas %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>%
            y = "Importancia",
            title = "Importancia media de los niveles")+
       theme(plot.title = element_text(hjust = 0.5))
+
+RF_Importancia_niveles_total_todas_las_variables
+RF_Importancia_niveles_media_todas_las_variables
+```
+Guardar las imagenes
+
+```{r}
+# Total
+ggsave("RF_Importancia_niveles_total_todas_las_variables.png",
+       RF_Importancia_niveles_total_todas_las_variables)
+
+# Media
+ggsave("RF_Importancia_niveles_media_todas_las_variables.png",
+       RF_Importancia_niveles_media_todas_las_variables)
 ```
 
 Importancia por cada año del que se tienen datos (si la variable no se dividió por años entonces no se tiene en cuenta)
 
 ```{r}
 # importancia total de los años
-importantes_clas %>% 
+RF_Importancia_años_total_todas_las_varibles <- importantes_clas %>% 
   mutate(variable = gsub("_1_", "un", variable),
          variable = gsub("IC4K", "ICFK", variable),
          variable = gsub("_5_", "_cinco_", variable),
@@ -783,7 +842,7 @@ importantes_clas %>%
       theme(plot.title = element_text(hjust = 0.5))
 
 # Importancia media de los años
-importantes_clas %>% 
+RF_Importancia_años_media_todas_las_varibles <- importantes_clas %>% 
   mutate(variable = gsub("_1_", "un", variable),
          variable = gsub("IC4K", "ICFK", variable),
          variable = gsub("_5_", "_cinco_", variable),
@@ -804,14 +863,30 @@ importantes_clas %>%
            y = "Importancia",
            title = "Importancia media de los años")+
       theme(plot.title = element_text(hjust = 0.5))
+
+RF_Importancia_años_total_todas_las_varibles
+RF_Importancia_años_media_todas_las_varibles
 ```
+
+Guardar imagen 
+
+```{r}
+#Total
+ggsave("RF_Importancia_años_total_todas_las_varibles.png",
+       RF_Importancia_años_total_todas_las_varibles)
+
+#Media
+ggsave("RF_Importancia_años_media_todas_las_varibles.png",
+       RF_Importancia_años_media_todas_las_varibles)
+```
+
 
 ## Hacer pca y umap para agrupar
 
 Datos
 
 ```{r}
-indicadores_clas_varfin <- indicadores_clas %>% 
+indicadores_clas_varfin <- indicadores_clas %>% cuidado aqui hace nuevo data frame 
   dplyr::select(departamento_entidad,
                 names(indicadores_clas_rec %>%
                         prep() %>%
@@ -827,16 +902,17 @@ indicadores_clas_varfin <- indicadores_clas %>%
                                       )
                       )
                 ) %>% 
-  merge(indicadores_bd_td %>% dplyr::select(nombre_entidad, indba_ptr_valora_total_hos)) %>% 
+  merge(indicadores_bd_td %>% dplyr::select(nombre_entidad, indba_ptr_valora_total_hos))# %>% 
 #  dplyr::select(-departamento_entidad)
-mutate(departamento_entidad = case_when(departamento_entidad != c("Antioquia", "Boyacá", "Cundinamarca", "Nariño", "Santander", "Tolima", "Valle del Cauca") ~ "Other",
-                                          TRUE ~ as.character(departamento_entidad))) #%>% count(departamento_entidad)
+#mutate(departamento_entidad = case_when(departamento_entidad != c("Antioquia", "Boyacá", "Cundinamarca", "Nariño", "Santander", "Tolima", "Valle del Cauca") ~ "Other",
+#                                          TRUE ~ as.character(departamento_entidad))) #%>% count(departamento_entidad)
 #sapply(indicadores_clas_varfin, function(x) sum(is.na(x)))
 ```
 
 ### PCA
 
 ```{r}
+hacer nuevo data frame??
 pca_randomf_rec <- recipe(riesgo ~ ., data = indicadores_clas_varfin) %>%
   update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
   step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
@@ -864,18 +940,49 @@ Gráfico
 
 ```{r}
 juice(pca_randomf_prep) %>%
-  ggplot(aes(PC1, PC2, label = nombre_entidad)) +
+  ggplot(aes(PC1, PC2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "PCA de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Guardar imagen
+
+```{r}
+#Sin leyenda
+ggsave(
+  "RF_PCA_hospitales_todas_las_variables_sin_leyenda.png",
+  juice(pca_randomf_prep) %>%
+  ggplot(aes(PC1, PC2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "PCA de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+)
+
+#Con leyenda
+ggsave(
+  "RF_PCA_hospitales_todas_las_variables_con_leyenda.png",
+  juice(pca_randomf_prep) %>%
+  ggplot(aes(PC1, PC2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
-  labs(color = NULL)
+  labs(color = NULL,
+       title = "PCA de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+)
 ```
+
 
 ### UMAP
 
 ```{r}
 umap_randomf_rec <- recipe(riesgo ~ ., data = indicadores_clas_varfin) %>%
   update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
-  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
+  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad), one_hot = TRUE) %>% 
   step_normalize(all_predictors()) %>%
   step_umap(all_predictors())
 
@@ -900,11 +1007,42 @@ Gráfico
 
 ```{r}
 juice(umap_randomf_prep) %>%
-  ggplot(aes(umap_1, umap_2, label = nombre_entidad)) +
+  ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2,  show.legend = FALSE) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "UMAP de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Guardar imagenes
+
+```{r}
+#sin leyenda
+ggsave(
+  "RF_UMAP_todas_las_variables_sin_leyenda.png",
+juice(umap_randomf_prep) %>%
+  ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "UMAP de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))    
+)
+
+#con leyenda
+ggsave(
+  "RF_UMAP_todas_las_variables_con_leyenda.png",
+juice(umap_randomf_prep) %>%
+  ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
-  labs(color = NULL)
+  labs(color = NULL,
+       title = "UMAP de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))  
+)
 ```
+
 
 Gráfico de dependencia parcial
 
@@ -931,18 +1069,36 @@ rf_pdp_depto <- model_profile(rf_explainer,
                               N = NULL)
 
 rf_pdp_finyr_2018 <- model_profile(rf_explainer,
-                              variables = "indba_ptr_contr_finyr_2018_hos",
+                              variables = "indba_ptr_prop_contr_finyr_2018_hos",
                               N = NULL)
 
 rf_pdp_valora <- model_profile(rf_explainer,
                               variables = "indba_ptr_valora_total_hos",
                               N = NULL)
 
+rf_pdp_otro_tipo_contrato <- model_profile(rf_explainer,
+                              variables = "indba_ptr_perc_OtroTipoContrato_hos",
+                              N = NULL)
 
+rf_pdp_dif_fechas <- model_profile(rf_explainer,
+                              variables = "indba_ptr_dif_fechas_cargue_firma_2015_hos",
+                              N = NULL)
+
+rf_pdp_prestacion_servicios <- model_profile(rf_explainer,
+                              variables = "indba_ptr_perc_PrestacionServicios_hos",
+                              N = NULL)
+
+rf_pdp_inec_vagregado_secundarias_2016 <- model_profile(rf_explainer,
+                              variables = "inec_perc_vagregado_actividades_secundarias_2016_mun",
+                              N = NULL)
 
 plot(rf_pdp_depto)
 plot(rf_pdp_finyr_2018)
 plot(rf_pdp_valora)
+plot(rf_pdp_otro_tipo_contrato)
+plot(rf_pdp_dif_fechas)
+plot(rf_pdp_prestacion_servicios)
+plot(rf_pdp_inec_vagregado_secundarias_2016)
 ```
 
 
@@ -962,6 +1118,7 @@ as.tibble(rf_pdp_depto$agr_profiles) %>%
        title = "Dependencia parcial",
        subtitle = "Predicciones modelo Random Forest balanceado con todas las variables")
 
+# Deptos
 as.tibble(rf_pdp_depto$agr_profiles) %>% 
   rename("label" = "_label_",
          "x" = "_x_",
@@ -974,9 +1131,10 @@ as.tibble(rf_pdp_depto$agr_profiles) %>%
     labs(x = "Departamento",
        y = "Probabilidad predicha del riesgo",
        title = "Dependencia parcial",
-       subtitle = "Predicciones modelo Random Forest balanceado con todas las variables") +
+       subtitle = "Predicciones modelo Random Forest balanceado y con feature reduction") +
   theme(axis.text.x = element_text( angle = 90))
-  
+
+# Fin de año 2018
 as.tibble(rf_pdp_finyr_2018$agr_profiles) %>% 
   rename("label" = "_label_",
          "x" = "_x_",
@@ -988,8 +1146,9 @@ as.tibble(rf_pdp_finyr_2018$agr_profiles) %>%
   labs(x = "Cantidad de contratos a final de año 2018",
        y = "Probabilidad predicha del riesgo",
        title = "Dependencia parcial",
-       subtitle = "Predicciones modelo Random Forest balanceado con todas las variables")
+       subtitle = "Predicciones modelo Random Forest balanceado y con feature reduction")
 
+#valor
 as.tibble(rf_pdp_valora$agr_profiles) %>% 
   rename("label" = "_label_",
          "x" = "_x_",
@@ -1000,7 +1159,7 @@ as.tibble(rf_pdp_valora$agr_profiles) %>%
   labs(x = "Valor de los contratos",
        y = "Probabilidad predicha del riesgo",
        title = "Dependencia parcial",
-       subtitle = "Predicciones modelo Random Forest balanceado con todas las variables")
+       subtitle = "Predicciones modelo Random Forest balanceado y con feature reduction")
 ```
 
 
