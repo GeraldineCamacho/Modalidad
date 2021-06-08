@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 Boosting es otra estrategia de ensemble que se puede emplear con un amplio grupo de métodos de statistical learning, entre ellos los árboles de decisión. La idea detrás del boosting es ajustar, de forma secuencial, múltiples weak learners (modelos sencillos que predicen solo ligeramente mejor que lo esperado por azar). Cada nuevo modelo emplea información del modelo anterior para aprender de sus errores, mejorando iteración a iteración. En el caso de los árboles de predicción, un weak learners se consigue utilizando árboles con muy pocas ramificaciones. A diferencia del método de bagging (random forest), el boosting no hace uso de muestreo repetido (bootstrapping), la diferencia entre los árboles que forman el ensemble se origina por que la importancia (peso) de las observaciones va cambiando en cada iteración.
 
 librerías
+
 ```{r}
 # Tratamiento de datos
 # ==============================================================================
@@ -151,7 +152,7 @@ hiperpar_grid <- expand_grid("trees" = c(100, 500, 1000),
                              "sample_size" = c(0.5, 1))
 ```
 
-# Optimización de hiperparámetros ejecución
+## Optimización de hiperparámetros ejecución
 ```{r}
 cl <- makePSOCKcluster(parallel::detectCores() - 1)
 registerDoParallel(cl)
@@ -231,154 +232,19 @@ xgb.plot.importance(importance_matrix = importance_matrix)
 
 
 
+
 # Gradient Boosting por clasificación 
 
 ## Preprocesamiento de los datos
 
 Lectura de los datos
+
 ```{r}
-indicadores_gen <- indicadores_bd_td
+indicadores_gen <- indicadores_clas
 head(indicadores_gen)
 ```
 
-Columnas que no se tienen en cuenta
-
-```{r}
-variables_no_necesarias <- c(
-  "nombre_entidad",
-  "cod_entidad",
-  "cod_departamento",
-  "nit_entidad",
-  "municipio_entidad",
-  "depto_mun"
-)
-
-variables_info_directa <- c(
-  # Indicadores iniciales
- "indba_perc_cerrada_num_hos" ,
- "indba_perc_cerrada_val_hos",
- "indba_perc_direc_val_hos",
-  # Fin de año (finyr)
-  "indba_contr_finyr_directa_dto",
-  "indba_prop_contr_finyr_dto",
-  "indba_contr_finyr_directa_hos",
-  "indba_prop_contr_finyr_hos" )
-```
-
-
-Eliminar columnas que no son necesarias y crear columna riesgo
-
-```{r}
-# eliminar las no necesarias
-indicadores_gen <- indicadores_gen %>%
-  dplyr::select(-all_of(variables_no_necesarias), -all_of(variables_info_directa))
-
-#crear los rangos
-indicadores_gen <- indicadores_gen %>% 
-  mutate(riesgo = case_when(indba_perc_cdirec_num_hos <= 25 ~ "Bajo o moderado",
-                            indba_perc_cdirec_num_hos <= 55 ~ "Medio",
-                            TRUE ~ "Alto"))
-```
-
-Calcular los cuartiles y graficar
-
-```{r}
-#Ccalcular los cuartiles
-#cartiles <-quantile(indicadores_gen$indba_perc_cdirec_num)
-
-
-# hacer histograma con la distribucion de los cuartiles
-ggplot(indicadores_gen, aes(indba_perc_cdirec_num_hos)) + 
-  geom_histogram(col = "white", fill = "gray", aes(y = ..density..)) + 
-  geom_density(col = "blue") + 
-  geom_vline(xintercept = cartiles[2], color = "red") +
-  geom_vline(xintercept = cartiles[3], color = "red") +
-  geom_vline(xintercept = cartiles[4], color = "red") + 
-  geom_vline(xintercept = cartiles[5], color = "red") +
-  scale_x_continuous(breaks = seq(0,100,10)) +
-  labs(title = "Distribución de porcentaje de contratación directa",
-       x = "Porcentaje de contratación directa",
-       y = "Densidad") +
-  theme_classic() +
-  theme(plot.title = element_text(hjust = 0.5))
-```
-
-Eliminar el porcentaje de contratacion directa
-
-```{r}
-indicadores_gen$indba_perc_cdirec_num_hos <- NULL
-
-#indicadores_gen$indba_contr_finyr_directa_dto <- NULL
-#indicadores_gen$indba_contr_finyr_directa_hos <- NULL
-#indicadores_gen$indba_contr_finyr_hos <- NULL
-#indicadores_gen$indba_prop_contr_finyr_hos <- NULL
-#indicadores_gen$indba_prop_contr_finyr_dto <- NULL
-
-#indicdores_clas$supers_ind10_oportunidad_entrega_reporte_info[is.na(indicadores_gen$supers_ind10_oportunidad_entraega_reporte_info)] <- "NO REGISTRA"
-
-indicadores_gen <- indicadores_gen %>% 
-  mutate_if(is.character, factor)
-
-#head(indicadores_gen[,182:184], 10)
-
-#indicadores_gen <- indicadores_gen[,c(1:18, 184)]
-```
-
-
-## Imputación de los Na
-
-Crear los datos de muestra
-
-```{r}
-# crear una muestra de los datos
-muestra_indicadores_gen <- initial_split(indicadores_gen, strata = riesgo)
-muestra_indicadores_gen <- training(muestra_indicadores_gen)
-
-head(muestra_indicadores_gen)
-```
-
-Aplicar cambio de Nas en el recipe
-
-```{r}
-indicadores_gen_rec_na <- recipe(riesgo ~ ., muestra_indicadores_gen) %>% 
-  step_medianimpute(all_numeric()) %>% 
-  step_nzv(all_predictors()) %>% 
-  prep()
-```
-
-
-Una vez que se ha definido el objeto recipe, con la función prep() se aprenden las transformaciones con los datos de entrenamiento y se aplican a los dos conjuntos con bake().
-
-```{r}
-# Se aplican las transformaciones al conjunto de datos
-indicadores_gen <- bake(indicadores_gen_rec_na, new_data = indicadores_gen)
-
-#glimpse(datos_train_prep)
-
-apply(is.na(indicadores_gen), 2, cantyprop_nas)
-```
-
-
-## Feature selection
-
-```{r}
-# Feature Selection
-set.seed(111)
-boruta <- Boruta(riesgo ~ ., data = indicadores_gen, doTrace = 2, maxRuns = 500)
-print(boruta)
-plot(boruta, las = 2, cex.axis = 0.7)
-plotImpHistory(boruta)
-
-# Tentative Fix
-bor <- TentativeRoughFix(boruta)
-print(bor)
-attStats(boruta)
-
-#get variable
-not_rejected <- getNonRejectedFormula(boruta)
-confirmed <- getConfirmedFormula(boruta)
-```
-
+LA IMPUTACIÓN Y LA REDUCCIÓN DE VARIABLES ESTÁ EN EL CÓDIGO DE RANDOM FOREST
 
 División de los datos en train y test
 
@@ -431,7 +297,7 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_gen_rec <- recipe(not_rejected,data = indicadores_gen) %>% 
+indicadores_gen_rec <- recipe(not_rejected, data = indicadores_gen) %>% 
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
@@ -501,6 +367,7 @@ xgb_res %>%
   facet_wrap(~parameter, scales = "free_x") +
   labs(x = NULL, y = "AUC")
 ```
+
 Recuerde que usamos un diseño que llena el espacio para que los parámetros prueben. Parece que los valores más altos para la profundidad del árbol fueron mejores, pero aparte de eso, lo principal que saco de este gráfico es que hay varias combinaciones de parámetros que funcionan bien.
 
 ¿Cuáles son los conjuntos de parámetros con mejor rendimiento?
@@ -544,19 +411,55 @@ final_res %>%
   conf_mat(riesgo, .pred_class)
 ```
 
+Curva roc
+
+```{r}
+XGB_Curva_ROC_todas_las_variables <- final_res %>% 
+  collect_predictions() %>%
+  rename(".pred_Bajo_o_moderado" = ".pred_Bajo o moderado") %>% 
+  roc_curve(riesgo, c(.pred_Alto, .pred_Bajo_o_moderado, .pred_Medio)) %>%
+  autoplot() +
+  labs(title = "Curva ROC por nivel de riesgo",
+       subtitle = "Gradient Boosting") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+
+XGB_Curva_ROC_todas_las_variables
+```
+
+
+Guardar la imagen
+
+```{r}
+ggsave("XGB_Curva_ROC_todas_las_variables.png", 
+       XGB_Curva_ROC_todas_las_variables)
+```
+
 ## Importancia de las variable
 
 ```{r}
 #install.packages("vip")
 #library(vip)
 
-final_xgb %>%
+XGB_importancia_variables_todas_las_variables <- final_xgb %>%
   fit(data = vb_train) %>%
   pull_workflow_fit() %>%
   vip(geom = "col",
-      num_features = 20L)
-```
+      num_features = 20L) + 
+    labs( title = "Importancia de las variables",
+        x = "Variable",
+        y = "Importancia") +
+#  coord_flip() +
+  theme(plot.title = element_text(hjust = 0.5))
 
+XGB_importancia_variables_todas_las_variables
+```
+Guardar imagen
+
+```{r}
+ggsave("XGB_importancia_variables_todas_las_variables.png",
+       XGB_importancia_variables_todas_las_variables)
+```
 
 ## Importancia de las subcategorías
 
@@ -573,7 +476,7 @@ Gráfico
 
 ```{r}
 # Total
-separate(data = importantes_xgb,
+XGB_Importancia_subcategorias_total_todas_las_variables <- separate(data = importantes_xgb,
          col = variable,
          into = "inicio",
          sep = "_") %>% 
@@ -589,7 +492,7 @@ separate(data = importantes_xgb,
 
 
 #Promedio
-separate(data = importantes_xgb,
+XGB_Importancia_subcategorias_media_todas_las_variables <- separate(data = importantes_xgb,
          col = variable,
          into = "inicio",
          sep = "_") %>% 
@@ -602,7 +505,24 @@ separate(data = importantes_xgb,
          y = "Importancia",
          title = "Importancia media de las subcategorías") +
     theme(plot.title = element_text(hjust = 0.5))
+
+XGB_Importancia_subcategorias_total_todas_las_variables
+XGB_Importancia_subcategorias_media_todas_las_variables
 ```
+
+
+Guadar imagenes
+
+```{r}
+# Total
+ggsave("XGB_Importancia_subcategorias_total_todas_las_variables.png",
+       XGB_Importancia_subcategorias_total_todas_las_variables)
+
+# Media
+ggsave("XGB_Importancia_subcategorias_media_todas_las_variables.png",
+       XGB_Importancia_subcategorias_media_todas_las_variables)
+```
+
 
 Seleccionar si es por hospital, municipio o departamento
 
@@ -615,7 +535,8 @@ Seleccionar
 
 ```{r}
 # Suma total
-importantes_xgb  %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+XGB_Importancia_niveles_total_todas_las_variables <- importantes_xgb %>%
+  filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = sum(importancia)) %>% 
   ggplot() +
@@ -627,7 +548,8 @@ importantes_xgb  %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>%
       theme(plot.title = element_text(hjust = 0.5))
 
 # Suma media
-importantes_xgb %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+XGB_Importancia_niveles_media_todas_las_variables <- importantes_xgb %>%
+  filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = mean(importancia)) %>% 
   ggplot() +
@@ -637,7 +559,239 @@ importantes_xgb %>% filter(fin == "hos" | fin == "mun" | fin == "dto") %>%
            y = "Importancia",
            title = "Importancia media de los niveles")+
       theme(plot.title = element_text(hjust = 0.5))
+
+XGB_Importancia_niveles_total_todas_las_variables
+XGB_Importancia_niveles_media_todas_las_variables
 ```
+
+Guardar las imagenes
+
+```{r}
+# Total
+ggsave("XGB_Importancia_niveles_total_todas_las_variables.png",
+       XGB_Importancia_niveles_total_todas_las_variables)
+
+# Media
+ggsave("XGB_Importancia_niveles_media_todas_las_variables.png",
+       XGB_Importancia_niveles_media_todas_las_variables)
+```
+
+Importancia por cada año del que se tienen datos (si la variable no se dividió por años entonces no se tiene en cuenta)
+
+```{r}
+# importancia total de los años
+XGB_Importancia_años_total_todas_las_varibles <- importantes_xgb %>% 
+  mutate(variable = gsub("_1_", "un", variable),
+         variable = gsub("IC4K", "ICFK", variable),
+         variable = gsub("_5_", "_cinco_", variable),
+         variable = gsub("ind2", "ind_dos", variable),
+         variable = gsub("_42_", "_cuarentaydos_", variable),
+         variable = gsub("ind10", "ind_diez", variable),
+         variable = gsub("_X0", "", variable),
+         variable = gsub("_X1", "", variable),
+         annio = parse_number(variable),
+         annio = as.character(annio)) %>%
+  mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
+  group_by(annio) %>% 
+  summarise(importancia_annio = sum(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = fct_reorder(annio, importancia_annio), y = importancia_annio), stat = "identity") +
+      coord_flip() +
+      labs(x = "Año del indicador",
+           y = "Importancia",
+           title = "Importancia total de los años")+
+      theme(plot.title = element_text(hjust = 0.5))
+
+# Importancia media de los años
+XGB_Importancia_años_media_todas_las_varibles <- importantes_xgb %>% 
+  mutate(variable = gsub("_1_", "un", variable),
+         variable = gsub("IC4K", "ICFK", variable),
+         variable = gsub("_5_", "_cinco_", variable),
+         variable = gsub("ind2", "ind_dos", variable),
+         variable = gsub("_42_", "_cuarentaydos_", variable),
+         variable = gsub("ind10", "ind_diez", variable),
+         variable = gsub("_X0", "", variable),
+         variable = gsub("_X1", "", variable),
+         annio = parse_number(variable),
+         annio = as.character(annio)) %>%
+  mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
+  group_by(annio) %>% 
+  summarise(importancia_annio = mean(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = fct_reorder(annio, importancia_annio), y = importancia_annio), stat = "identity") +
+      coord_flip() +
+      labs(x = "Año del indicador",
+           y = "Importancia",
+           title = "Importancia media de los años")+
+      theme(plot.title = element_text(hjust = 0.5))
+
+XGB_Importancia_años_total_todas_las_varibles
+XGB_Importancia_años_media_todas_las_varibles
+```
+
+Guardar imagen 
+
+```{r}
+#Total
+ggsave("XGB_Importancia_años_total_todas_las_varibles.png",
+       XGB_Importancia_años_total_todas_las_varibles)
+
+#Media
+ggsave("XGB_Importancia_años_media_todas_las_varibles.png",
+       XGB_Importancia_años_media_todas_las_varibles)
+```
+
+## Hacer pca y umap para agrupar
+
+Datos
+
+```{r}
+indicadores_gen_varfin <- indicadores_gen %>% 
+  dplyr::select(departamento_entidad,
+                names(indicadores_clas_rec %>%
+                        prep() %>%
+                        bake(new_data =  NULL) %>%
+                        dplyr::select(-c(departamento_entidad_Antioquia,
+                                         departamento_entidad_Boyacá,
+                                         departamento_entidad_Cundinamarca,
+                                         departamento_entidad_Nariño,
+                                         departamento_entidad_Santander,
+                                         departamento_entidad_Tolima,
+                                         departamento_entidad_Valle.del.Cauca,
+                                         departamento_entidad_other)
+                                      )
+                      )
+                ) %>% 
+  merge(indicadores_bd_td %>% dplyr::select(nombre_entidad, indba_ptr_valora_total_hos))# %>% 
+#  dplyr::select(-departamento_entidad)
+#mutate(departamento_entidad = case_when(departamento_entidad != c("Antioquia", "Boyacá", "Cundinamarca", "Nariño", "Santander", "Tolima", "Valle del Cauca") ~ "Other",
+#                                          TRUE ~ as.character(departamento_entidad))) #%>% count(departamento_entidad)
+#sapply(indicadores_clas_varfin, function(x) sum(is.na(x)))
+```
+
+### PCA
+
+```{r}
+pca_xgboost_rec <- recipe(riesgo ~ ., data = indicadores_gen_varfin) %>%
+  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
+  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
+  step_normalize(all_predictors()) %>%
+  step_pca(all_predictors())
+
+pca_xgboost_prep <- prep(pca_xgboost_rec)
+
+pca_xgboost_prep
+```
+
+Ver los factores 
+
+```{r}
+tidy(pca_xgboost_prep, 3)
+```
+
+Ver los datos
+
+```{r}
+juice(pca_xgboost_prep)
+```
+
+Gráfico
+
+```{r}
+XGB_PCA_hospitales_todas_las_variables <- juice(pca_xgboost_prep) %>%
+  ggplot(aes(PC1, PC2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "PCA de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+XGB_PCA_hospitales_todas_las_variables
+```
+
+Guardar imagen
+
+```{r}
+#Sin leyenda
+ggsave("XGB_PCA_hospitales_todas_las_variables_sin_leyenda.png",
+       XGB_PCA_hospitales_todas_las_variables)
+
+#Con leyenda
+ggsave(
+  "XGB_PCA_hospitales_todas_las_variables_con_leyenda.png",
+  juice(pca_xgboost_prep) %>%
+  ggplot(aes(PC1, PC2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "PCA de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+)
+```
+
+
+### UMAP
+
+```{r}
+umap_xgboost_rec <- recipe(riesgo ~ ., data = indicadores_gen_varfin) %>%
+  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
+  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad), one_hot = TRUE) %>% 
+  step_normalize(all_predictors()) %>%
+  step_umap(all_predictors())
+
+umap_xgboost_prep <- prep(umap_xgboost_rec)
+
+umap_xgboost_prep
+```
+
+Ver los factores 
+
+```{r}
+tidy(umap_xgb_prep, 3)
+```
+
+Ver los datos
+
+```{r}
+juice(umap_xgb_prep)
+```
+
+Gráfico
+
+```{r}
+XGB_UMAP_hospitales_todas_las_variables <- juice(umap_xgboost_prep) %>%
+  ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2,  show.legend = FALSE) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "UMAP de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+XGB_UMAP_hospitales_todas_las_variables
+```
+
+Guardar imagenes
+
+```{r}
+#sin leyenda
+ggsave("XGB_UMAP_todas_las_variables_sin_leyenda.png",
+       XGB_UMAP_hospitales_todas_las_variables)
+
+#con leyenda
+ggsave(
+  "XGB_UMAP_todas_las_variables_con_leyenda.png",
+juice(umap_xgboost_prep) %>%
+  ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "UMAP de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))  
+)
+```
+faltan gráficos de dependencia parcial
+
+
 
 ver si hay nas
 
