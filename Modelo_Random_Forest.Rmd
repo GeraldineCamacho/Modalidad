@@ -951,29 +951,23 @@ juice(pca_randomf_prep)
 Gráfico
 
 ```{r}
-juice(pca_randomf_prep) %>%
+RF_PCA_hospitales_todas_las_variables <- juice(pca_randomf_prep) %>%
   ggplot(aes(PC1, PC2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
   labs(color = NULL,
        title = "PCA de hospitales por departamentos") +
   theme(plot.title = element_text(hjust = 0.5))
+
+RF_PCA_hospitales_todas_las_variables
 ```
 
 Guardar imagen
 
 ```{r}
 #Sin leyenda
-ggsave(
-  "RF_PCA_hospitales_todas_las_variables_sin_leyenda.png",
-  juice(pca_randomf_prep) %>%
-  ggplot(aes(PC1, PC2, label = departamento_entidad)) +
-  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
-  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
-  labs(color = NULL,
-       title = "PCA de hospitales por departamentos") +
-  theme(plot.title = element_text(hjust = 0.5))
-)
+ggsave("RF_PCA_hospitales_todas_las_variables_sin_leyenda.png",
+       RF_PCA_hospitales_todas_las_variables)
 
 #Con leyenda
 ggsave(
@@ -1018,29 +1012,23 @@ juice(umap_randomf_prep)
 Gráfico
 
 ```{r}
-juice(umap_randomf_prep) %>%
+RF_UMAP_hospitales_todas_las_variables <- juice(umap_randomf_prep) %>%
   ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2,  show.legend = FALSE) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
   labs(color = NULL,
        title = "UMAP de hospitales por departamentos") +
   theme(plot.title = element_text(hjust = 0.5))
+
+RF_UMAP_hospitales_todas_las_variables
 ```
 
 Guardar imagenes
 
 ```{r}
 #sin leyenda
-ggsave(
-  "RF_UMAP_todas_las_variables_sin_leyenda.png",
-juice(umap_randomf_prep) %>%
-  ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
-  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
-  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
-  labs(color = NULL,
-       title = "UMAP de hospitales por departamentos") +
-  theme(plot.title = element_text(hjust = 0.5))    
-)
+ggsave("RF_UMAP_todas_las_variables_sin_leyenda.png",
+       RF_UMAP_hospitales_todas_las_variables)
 
 #con leyenda
 ggsave(
