@@ -473,7 +473,7 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_clas_rec <- recipe(riesgo ~ ., data = indicadores_clas) %>% 
+indicadores_clas_rec <- recipe(not_rejected_sin_mdm_supers, data = indicadores_clas) %>% 
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
@@ -581,7 +581,7 @@ rf_val_clas %>% collect_predictions() %>% conf_mat(riesgo, .pred_class)
 Curva roc
 
 ```{r}
-RF_Curva_ROC_sin_boruta <- rf_val_clas %>% 
+RF_Curva_ROC_sin_mdm_supers <- rf_val_clas %>% 
   collect_predictions() %>%
   rename(".pred_Bajo_o_moderado" = ".pred_Bajo o moderado") %>% 
   roc_curve(riesgo, c(.pred_Alto, .pred_Bajo_o_moderado, .pred_Medio)) %>%
@@ -591,14 +591,14 @@ RF_Curva_ROC_sin_boruta <- rf_val_clas %>%
   theme(plot.title = element_text(hjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5))
 
-RF_Curva_ROC_sin_boruta
+RF_Curva_ROC_sin_mdm_supers
 ```
 
 Guardar la imagen
 
 ```{r}
-ggsave("RF_Curva_ROC_sin_boruta.png", 
-       RF_Curva_ROC_sin_boruta)
+ggsave("RF_Curva_ROC_sin_mdm_supers.png", 
+       RF_Curva_ROC_sin_mdm_supers)
 ```
 
 
@@ -702,7 +702,7 @@ rf_metric
 Gráfico de las variables más importantes
 
 ```{r}
-RF_importancia_sin_boruta <- importantes_clas %>% 
+RF_importancia_sin_mdm_supers <- importantes_clas %>% 
 #  dplyr::select(-fin) %>% 
   mutate(variable = forcats::fct_reorder(variable, importancia)) %>% 
   top_n(20) %>% 
@@ -714,14 +714,14 @@ RF_importancia_sin_boruta <- importantes_clas %>%
   coord_flip() +
   theme(plot.title = element_text(hjust = 0.5))
 
-RF_importancia_sin_boruta
+RF_importancia_sin_mdm_supers
 ```
 
 Guardar imagen
 
 ```{r}
-ggsave("RF_importancia_sin_boruta.png",
-       RF_importancia_sin_boruta)
+ggsave("RF_importancia_sin_mdm_supers.png",
+       RF_importancia_sin_mdm_supers)
 ```
 
 
@@ -730,7 +730,7 @@ ggsave("RF_importancia_sin_boruta.png",
 Hacer un gráfico mostrando la suma total de la importancia de las categorías de los indicadores que se tuvieron en cuenta.
 ```{r}
 # Total
-RF_Importancia_subcategorias_total_sin_boruta <- separate(data = importantes_clas,
+RF_Importancia_subcategorias_total_sin_mdm_supers <- separate(data = importantes_clas,
          col = variable,
          into = "inicio",
          sep = "_") %>% 
@@ -745,7 +745,7 @@ RF_Importancia_subcategorias_total_sin_boruta <- separate(data = importantes_cla
     theme(plot.title = element_text(hjust = 0.5))
 
 # Promedio
-RF_Importancia_subcategorias_media_sin_boruta <- separate(data = importantes_clas,
+RF_Importancia_subcategorias_media_sin_mdm_supers <- separate(data = importantes_clas,
          col = variable,
          into = "inicio",
          sep = "_") %>% 
@@ -759,20 +759,20 @@ RF_Importancia_subcategorias_media_sin_boruta <- separate(data = importantes_cla
          title = "Importancia media de las subcategorías")+
     theme(plot.title = element_text(hjust = 0.5))
  
-RF_Importancia_subcategorias_total_sin_boruta
-RF_Importancia_subcategorias_media_sin_boruta  
+RF_Importancia_subcategorias_total_sin_mdm_supers
+RF_Importancia_subcategorias_media_sin_mdm_supers
 ```
 
 Guadar imagenes
 
 ```{r}
 # Total
-ggsave("RF_Importancia_subcategorias_total_sin_boruta.png",
-       RF_Importancia_subcategorias_total_sin_boruta)
+ggsave("RF_Importancia_subcategorias_total_sin_mdm_supers.png",
+       RF_Importancia_subcategorias_total_sin_mdm_supers)
 
 # Media
-ggsave("RF_Importancia_subcategorias_media_sin_boruta.png",
-       RF_Importancia_subcategorias_media_sin_boruta)
+ggsave("RF_Importancia_subcategorias_media_sin_mdm_supers.png",
+       RF_Importancia_subcategorias_media_sin_mdm_supers)
 ```
 
 
@@ -787,7 +787,7 @@ Seleccionar
 
 ```{r}
 # Suma total
-RF_Importancia_niveles_total_sin_boruta <- importantes_clas %>%
+RF_Importancia_niveles_total_sin_mdm_supers <- importantes_clas %>%
   filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = sum(importancia)) %>% 
@@ -800,7 +800,7 @@ RF_Importancia_niveles_total_sin_boruta <- importantes_clas %>%
       theme(plot.title = element_text(hjust = 0.5))
 
 # Suma media
-RF_Importancia_niveles_media_sin_boruta <- importantes_clas %>%
+RF_Importancia_niveles_media_sin_mdm_supers <- importantes_clas %>%
   filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = mean(importancia)) %>% 
@@ -812,26 +812,26 @@ RF_Importancia_niveles_media_sin_boruta <- importantes_clas %>%
            title = "Importancia media de los niveles")+
       theme(plot.title = element_text(hjust = 0.5))
 
-RF_Importancia_niveles_total_sin_boruta
-RF_Importancia_niveles_media_sin_boruta
+RF_Importancia_niveles_total_sin_mdm_supers
+RF_Importancia_niveles_media_sin_mdm_supers
 ```
 Guardar las imagenes
 
 ```{r}
 # Total
-ggsave("RF_Importancia_niveles_total_sin_boruta.png",
-       RF_Importancia_niveles_total_sin_boruta)
+ggsave("RF_Importancia_niveles_total_sin_mdm_supers.png",
+       RF_Importancia_niveles_total_sin_mdm_supers)
 
 # Media
-ggsave("RF_Importancia_niveles_media_sin_boruta.png",
-       RF_Importancia_niveles_media_sin_boruta)
+ggsave("RF_Importancia_niveles_media_sin_mdm_supers.png",
+       RF_Importancia_niveles_media_sin_mdm_supers)
 ```
 
 Importancia por cada año del que se tienen datos (si la variable no se dividió por años entonces no se tiene en cuenta)
 
 ```{r}
 # importancia total de los años
-RF_Importancia_años_total_sin_boruta <- importantes_clas %>% 
+RF_Importancia_años_total_sin_mdm_supers <- importantes_clas %>% 
   mutate(variable = gsub("_1_", "un", variable),
          variable = gsub("IC4K", "ICFK", variable),
          variable = gsub("_5_", "_cinco_", variable),
@@ -854,7 +854,7 @@ RF_Importancia_años_total_sin_boruta <- importantes_clas %>%
       theme(plot.title = element_text(hjust = 0.5))
 
 # Importancia media de los años
-RF_Importancia_años_media_sin_boruta <- importantes_clas %>% 
+RF_Importancia_años_media_sin_mdm_supers <- importantes_clas %>% 
   mutate(variable = gsub("_1_", "un", variable),
          variable = gsub("IC4K", "ICFK", variable),
          variable = gsub("_5_", "_cinco_", variable),
@@ -876,20 +876,20 @@ RF_Importancia_años_media_sin_boruta <- importantes_clas %>%
            title = "Importancia media de los años")+
       theme(plot.title = element_text(hjust = 0.5))
 
-RF_Importancia_años_total_sin_boruta
-RF_Importancia_años_media_sin_boruta
+RF_Importancia_años_total_sin_mdm_supers
+RF_Importancia_años_media_sin_mdm_supers
 ```
 
 Guardar imagen 
 
 ```{r}
 #Total
-ggsave("RF_Importancia_años_total_sin_boruta.png",
-       RF_Importancia_años_total_sin_boruta)
+ggsave("RF_Importancia_años_total_sin_mdm_supers.png",
+       RF_Importancia_años_total_sin_mdm_supers)
 
 #Media
-ggsave("RF_Importancia_años_media_sin_boruta.png",
-       RF_Importancia_años_media_sin_boruta)
+ggsave("RF_Importancia_años_media_sin_mdm_supers.png",
+       RF_Importancia_años_media_sin_mdm_supers)
 ```
 
 
@@ -898,7 +898,7 @@ ggsave("RF_Importancia_años_media_sin_boruta.png",
 Datos
 
 ```{r}
-indicadores_clas_varfin_sin_boruta <- indicadores_clas %>%
+indicadores_clas_varfin_sin_mdm_supers <- indicadores_clas %>%
   dplyr::select(departamento_entidad,
                 names(indicadores_clas_rec %>%
                         prep() %>%
@@ -910,21 +910,7 @@ indicadores_clas_varfin_sin_boruta <- indicadores_clas %>%
                                          departamento_entidad_Santander,
                                          departamento_entidad_Tolima,
                                          departamento_entidad_Valle.del.Cauca,
-                                         departamento_entidad_other,
-                                         orden_entidad_DISTRITO.CAPITAL,
-                                         orden_entidad_NACIONAL.CENTRALIZADO,
-                                         orden_entidad_NACIONAL.DESCENTRALIZADO,
-                                         orden_entidad_TERRITORIAL.DEPARTAMENTAL.CENTRALIZADO,
-                                         orden_entidad_TERRITORIAL.DEPARTAMENTAL.DESCENTRALIZADO,
-                                         orden_entidad_TERRITORIAL.DISTRITAL.MUNICIPAL.NIVEL.1,
-                                         orden_entidad_TERRITORIAL.DISTRITAL.MUNICIPAL.NIVEL.2,
-                                         orden_entidad_TERRITORIAL.DISTRITAL.MUNICIPAL.NIVEL.3,
-                                         orden_entidad_TERRITORIAL.DISTRITAL.MUNICIPAL.NIVEL.4,
-                                         orden_entidad_TERRITORIAL.DISTRITAL.MUNICIPAL.NIVEL.5,
-                                         orden_entidad_TERRITORIAL.DISTRITAL.MUNICIPAL.NIVEL.6,
-                                         supers_ind10_oportunidad_entrega_reporte_info_hos_X0,
-                                         supers_ind10_oportunidad_entrega_reporte_info_hos_X1
-                                         )
+                                         departamento_entidad_other)
                                       )
                       )
                 ) %>% 
@@ -938,15 +924,15 @@ indicadores_clas_varfin_sin_boruta <- indicadores_clas %>%
 ### PCA
 
 ```{r}
-pca_randomf_rec_sin_boruta <- recipe(riesgo ~ ., data = indicadores_clas_varfin_sin_boruta) %>%
+pca_randomf_rec_sin_mdm_supers <- recipe(riesgo ~ ., data = indicadores_clas_varfin_sin_mdm_supers) %>%
   update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
   step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
   step_normalize(all_predictors()) %>%
   step_pca(all_predictors())
 
-pca_randomf_prep_sin_boruta <- prep(pca_randomf_rec_sin_boruta)
+pca_randomf_prep_sin_mdm_supers <- prep(pca_randomf_rec_sin_mdm_supers)
 
-pca_randomf_prep_sin_boruta
+pca_randomf_prep_sin_mdm_supers
 ```
 
 Ver los factores 
@@ -964,7 +950,7 @@ juice(pca_randomf_prep)
 Gráfico
 
 ```{r}
-RF_PCA_hospitales_sin_boruta <- juice(pca_randomf_prep_sin_boruta) %>%
+RF_PCA_hospitales_sin_mdm_supers <- juice(pca_randomf_prep_sin_mdm_supers) %>%
   ggplot(aes(PC1, PC2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
@@ -972,20 +958,20 @@ RF_PCA_hospitales_sin_boruta <- juice(pca_randomf_prep_sin_boruta) %>%
        title = "PCA de hospitales por departamentos") +
   theme(plot.title = element_text(hjust = 0.5))
 
-RF_PCA_hospitales_sin_boruta
+RF_PCA_hospitales_sin_mdm_supers
 ```
 
 Guardar imagen
 
 ```{r}
 #Sin leyenda
-ggsave("RF_PCA_hospitales_sin_boruta_sin_leyenda.png",
-       RF_PCA_hospitales_sin_boruta)
+ggsave("RF_PCA_hospitales_sin_mdm_supers_sin_leyenda.png",
+       RF_PCA_hospitales_sin_mdm_supers)
 
 #Con leyenda
 ggsave(
-  "RF_PCA_hospitales_sin_boruta_con_leyenda.png",
-  juice(pca_randomf_prep_sin_boruta) %>%
+  "RF_PCA_hospitales_sin_mdm_supers_con_leyenda.png",
+  juice(pca_randomf_prep_sin_mdm_supers) %>%
   ggplot(aes(PC1, PC2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
@@ -999,15 +985,15 @@ ggsave(
 ### UMAP
 
 ```{r}
-umap_randomf_rec_sin_boruta <- recipe(riesgo ~ ., data = indicadores_clas_varfin_sin_boruta) %>%
+umap_randomf_rec_sin_mdm_supers <- recipe(riesgo ~ ., data = indicadores_clas_varfin_sin_mdm_supers) %>%
   update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
   step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad), one_hot = TRUE) %>% 
   step_normalize(all_predictors()) %>%
   step_umap(all_predictors())
 
-umap_randomf_prep_sin_boruta <- prep(umap_randomf_rec_sin_boruta)
+umap_randomf_prep_sin_mdm_supers <- prep(umap_randomf_rec_sin_mdm_supers)
 
-umap_randomf_prep_sin_boruta
+umap_randomf_prep_sin_mdm_supers
 ```
 
 Ver los factores 
@@ -1025,7 +1011,7 @@ juice(umap_randomf_prep)
 Gráfico
 
 ```{r}
-RF_UMAP_hospitales_sin_boruta <- juice(umap_randomf_prep_sin_boruta) %>%
+RF_UMAP_hospitales_sin_mdm_supers <- juice(umap_randomf_prep_sin_mdm_supers) %>%
   ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2,  show.legend = FALSE) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
@@ -1033,20 +1019,20 @@ RF_UMAP_hospitales_sin_boruta <- juice(umap_randomf_prep_sin_boruta) %>%
        title = "UMAP de hospitales por departamentos") +
   theme(plot.title = element_text(hjust = 0.5))
 
-RF_UMAP_hospitales_sin_boruta
+RF_UMAP_hospitales_sin_mdm_supers
 ```
 
 Guardar imagenes
 
 ```{r}
 #sin leyenda
-ggsave("RF_UMAP_sin_boruta_sin_leyenda.png",
-       RF_UMAP_hospitales_sin_boruta)
+ggsave("RF_UMAP_sin_mdm_supers_sin_leyenda.png",
+       RF_UMAP_hospitales_sin_mdm_supers)
 
 #con leyenda
 ggsave(
-  "RF_UMAP_sin_boruta_con_leyenda.png",
-juice(umap_randomf_prep_sin_boruta) %>%
+  "RF_UMAP_sin_mdm_supers_con_leyenda.png",
+juice(umap_randomf_prep_sin_mdm_supers) %>%
   ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
