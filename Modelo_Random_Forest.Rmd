@@ -788,7 +788,7 @@ Seleccionar
 
 ```{r}
 # Suma total
-RF_Importancia_niveles_total_sin_mdm_supers <- importantes_clas %>%
+RF_Importancia_niveles_total_indba <- importantes_clas %>%
   filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = sum(importancia)) %>% 
@@ -801,7 +801,7 @@ RF_Importancia_niveles_total_sin_mdm_supers <- importantes_clas %>%
       theme(plot.title = element_text(hjust = 0.5))
 
 # Suma media
-RF_Importancia_niveles_media_sin_mdm_supers <- importantes_clas %>%
+RF_Importancia_niveles_media_indba <- importantes_clas %>%
   filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = mean(importancia)) %>% 
@@ -813,19 +813,19 @@ RF_Importancia_niveles_media_sin_mdm_supers <- importantes_clas %>%
            title = "Importancia media de los niveles")+
       theme(plot.title = element_text(hjust = 0.5))
 
-RF_Importancia_niveles_total_sin_mdm_supers
-RF_Importancia_niveles_media_sin_mdm_supers
+RF_Importancia_niveles_total_indba
+RF_Importancia_niveles_media_indba
 ```
 Guardar las imagenes
 
 ```{r}
 # Total
-ggsave("RF_Importancia_niveles_total_sin_mdm_supers.png",
-       RF_Importancia_niveles_total_sin_mdm_supers)
+ggsave("RF_Importancia_niveles_total_indba.png",
+       RF_Importancia_niveles_total_indba)
 
 # Media
-ggsave("RF_Importancia_niveles_media_sin_mdm_supers.png",
-       RF_Importancia_niveles_media_sin_mdm_supers)
+ggsave("RF_Importancia_niveles_media_indba.png",
+       RF_Importancia_niveles_media_indba)
 ```
 
 Importancia por cada año del que se tienen datos (si la variable no se dividió por años entonces no se tiene en cuenta)
