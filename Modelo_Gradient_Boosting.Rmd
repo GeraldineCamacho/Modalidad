@@ -535,7 +535,7 @@ Seleccionar
 
 ```{r}
 # Suma total
-XGB_Importancia_niveles_total_sin_boruta <- importantes_xgb %>%
+XGB_Importancia_niveles_total_indba <- importantes_xgb %>%
   filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = sum(importancia)) %>% 
@@ -548,7 +548,7 @@ XGB_Importancia_niveles_total_sin_boruta <- importantes_xgb %>%
       theme(plot.title = element_text(hjust = 0.5))
 
 # Suma media
-XGB_Importancia_niveles_media_sin_boruta <- importantes_xgb %>%
+XGB_Importancia_niveles_media_indba <- importantes_xgb %>%
   filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = mean(importancia)) %>% 
@@ -560,20 +560,20 @@ XGB_Importancia_niveles_media_sin_boruta <- importantes_xgb %>%
            title = "Importancia media de los niveles")+
       theme(plot.title = element_text(hjust = 0.5))
 
-XGB_Importancia_niveles_total_sin_boruta
-XGB_Importancia_niveles_media_sin_boruta
+XGB_Importancia_niveles_total_indba
+XGB_Importancia_niveles_media_indba
 ```
 
 Guardar las imagenes
 
 ```{r}
 # Total
-ggsave("XGB_Importancia_niveles_total_sin_boruta.png",
-       XGB_Importancia_niveles_total_sin_boruta)
+ggsave("XGB_Importancia_niveles_total_indba.png",
+       XGB_Importancia_niveles_total_indba)
 
 # Media
-ggsave("XGB_Importancia_niveles_media_sin_boruta.png",
-       XGB_Importancia_niveles_media_sin_boruta)
+ggsave("XGB_Importancia_niveles_media_indba.png",
+       XGB_Importancia_niveles_media_indba)
 ```
 
 Importancia por cada año del que se tienen datos (si la variable no se dividió por años entonces no se tiene en cuenta)
