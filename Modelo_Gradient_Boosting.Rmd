@@ -297,7 +297,7 @@ Definir las tareas de preprocesamiento
 -  Crear variables dummyes con las variables categóricas
 
 ```{r}
-indicadores_gen_rec <- recipe(riesgo ~ ., data = indicadores_gen) %>% 
+indicadores_gen_rec <- recipe(not_rejected, data = indicadores_gen) %>% 
   step_normalize(all_numeric()) %>% 
   step_other(departamento_entidad) %>% 
   step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
@@ -414,7 +414,7 @@ final_res %>%
 Curva roc
 
 ```{r}
-XGB_Curva_ROC_indba <- final_res %>% 
+XGB_Curva_ROC_todas_las_variables <- final_res %>% 
   collect_predictions() %>%
   rename(".pred_Bajo_o_moderado" = ".pred_Bajo o moderado") %>% 
   roc_curve(riesgo, c(.pred_Alto, .pred_Bajo_o_moderado, .pred_Medio)) %>%
@@ -424,15 +424,15 @@ XGB_Curva_ROC_indba <- final_res %>%
   theme(plot.title = element_text(hjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5))
 
-XGB_Curva_ROC_indba
+XGB_Curva_ROC_todas_las_variables
 ```
 
 
 Guardar la imagen
 
 ```{r}
-ggsave("XGB_Curva_ROC_indba.png", 
-       XGB_Curva_ROC_indba)
+ggsave("XGB_Curva_ROC_todas_las_variables.png", 
+       XGB_Curva_ROC_todas_las_variables)
 ```
 
 ## Importancia de las variable
@@ -441,7 +441,7 @@ ggsave("XGB_Curva_ROC_indba.png",
 #install.packages("vip")
 #library(vip)
 
-XGB_importancia_variables_indba <- final_xgb %>%
+XGB_importancia_variables_todas_las_variables <- final_xgb %>%
   fit(data = vb_train) %>%
   pull_workflow_fit() %>%
   vip(geom = "col",
@@ -452,13 +452,13 @@ XGB_importancia_variables_indba <- final_xgb %>%
 #  coord_flip() +
   theme(plot.title = element_text(hjust = 0.5))
 
-XGB_importancia_variables_indba
+XGB_importancia_variables_todas_las_variables
 ```
 Guardar imagen
 
 ```{r}
-ggsave("XGB_importancia_variables_indba.png",
-       XGB_importancia_variables_indba)
+ggsave("XGB_importancia_variables_todas_las_variables.png",
+       XGB_importancia_variables_todas_las_variables)
 ```
 
 ## Importancia de las subcategorías
@@ -476,7 +476,7 @@ Gráfico
 
 ```{r}
 # Total
-XGB_Importancia_subcategorias_total_indba<- separate(data = importantes_xgb,
+XGB_Importancia_subcategorias_total_todas_las_variables <- separate(data = importantes_xgb,
          col = variable,
          into = "inicio",
          sep = "_") %>% 
@@ -492,7 +492,7 @@ XGB_Importancia_subcategorias_total_indba<- separate(data = importantes_xgb,
 
 
 #Promedio
-XGB_Importancia_subcategorias_media_indba <- separate(data = importantes_xgb,
+XGB_Importancia_subcategorias_media_todas_las_variables <- separate(data = importantes_xgb,
          col = variable,
          into = "inicio",
          sep = "_") %>% 
@@ -506,8 +506,8 @@ XGB_Importancia_subcategorias_media_indba <- separate(data = importantes_xgb,
          title = "Importancia media de las subcategorías") +
     theme(plot.title = element_text(hjust = 0.5))
 
-XGB_Importancia_subcategorias_total_indba
-XGB_Importancia_subcategorias_media_indba
+XGB_Importancia_subcategorias_total_todas_las_variables
+XGB_Importancia_subcategorias_media_todas_las_variables
 ```
 
 
@@ -515,12 +515,12 @@ Guadar imagenes
 
 ```{r}
 # Total
-ggsave("XGB_Importancia_subcategorias_total_indba.png",
-       XGB_Importancia_subcategorias_total_indba)
+ggsave("XGB_Importancia_subcategorias_total_todas_las_variables.png",
+       XGB_Importancia_subcategorias_total_todas_las_variables)
 
 # Media
-ggsave("XGB_Importancia_subcategorias_media_indba.png",
-       XGB_Importancia_subcategorias_media_indba)
+ggsave("XGB_Importancia_subcategorias_media_todas_las_variables.png",
+       XGB_Importancia_subcategorias_media_todas_las_variables)
 ```
 
 
@@ -535,7 +535,7 @@ Seleccionar
 
 ```{r}
 # Suma total
-XGB_Importancia_niveles_total_indba <- importantes_xgb %>%
+XGB_Importancia_niveles_total_todas_las_variables <- importantes_xgb %>%
   filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = sum(importancia)) %>% 
@@ -548,7 +548,7 @@ XGB_Importancia_niveles_total_indba <- importantes_xgb %>%
       theme(plot.title = element_text(hjust = 0.5))
 
 # Suma media
-XGB_Importancia_niveles_media_indba <- importantes_xgb %>%
+XGB_Importancia_niveles_media_todas_las_variables <- importantes_xgb %>%
   filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
   group_by(fin) %>% 
   summarise(total = mean(importancia)) %>% 
@@ -560,27 +560,27 @@ XGB_Importancia_niveles_media_indba <- importantes_xgb %>%
            title = "Importancia media de los niveles")+
       theme(plot.title = element_text(hjust = 0.5))
 
-XGB_Importancia_niveles_total_indba
-XGB_Importancia_niveles_media_indba
+XGB_Importancia_niveles_total_todas_las_variables
+XGB_Importancia_niveles_media_todas_las_variables
 ```
 
 Guardar las imagenes
 
 ```{r}
 # Total
-ggsave("XGB_Importancia_niveles_total_indba.png",
-       XGB_Importancia_niveles_total_indba)
+ggsave("XGB_Importancia_niveles_total_todas_las_variables.png",
+       XGB_Importancia_niveles_total_todas_las_variables)
 
 # Media
-ggsave("XGB_Importancia_niveles_media_indba.png",
-       XGB_Importancia_niveles_media_indba)
+ggsave("XGB_Importancia_niveles_media_todas_las_variables.png",
+       XGB_Importancia_niveles_media_todas_las_variables)
 ```
 
 Importancia por cada año del que se tienen datos (si la variable no se dividió por años entonces no se tiene en cuenta)
 
 ```{r}
 # importancia total de los años
-XGB_Importancia_años_total_indba <- importantes_xgb %>% 
+XGB_Importancia_años_total_todas_las_varibles <- importantes_xgb %>% 
   mutate(variable = gsub("_1_", "un", variable),
          variable = gsub("IC4K", "ICFK", variable),
          variable = gsub("_5_", "_cinco_", variable),
@@ -603,7 +603,7 @@ XGB_Importancia_años_total_indba <- importantes_xgb %>%
       theme(plot.title = element_text(hjust = 0.5))
 
 # Importancia media de los años
-XGB_Importancia_años_media_indba <- importantes_xgb %>% 
+XGB_Importancia_años_media_todas_las_varibles <- importantes_xgb %>% 
   mutate(variable = gsub("_1_", "un", variable),
          variable = gsub("IC4K", "ICFK", variable),
          variable = gsub("_5_", "_cinco_", variable),
@@ -625,20 +625,20 @@ XGB_Importancia_años_media_indba <- importantes_xgb %>%
            title = "Importancia media de los años")+
       theme(plot.title = element_text(hjust = 0.5))
 
-XGB_Importancia_años_total_indba
-XGB_Importancia_años_media_indba
+XGB_Importancia_años_total_todas_las_varibles
+XGB_Importancia_años_media_todas_las_varibles
 ```
 
 Guardar imagen 
 
 ```{r}
 #Total
-ggsave("XGB_Importancia_años_total_indba.png",
-       XGB_Importancia_años_total_indba)
+ggsave("XGB_Importancia_años_total_todas_las_varibles.png",
+       XGB_Importancia_años_total_todas_las_varibles)
 
 #Media
-ggsave("XGB_Importancia_años_media_indba.png",
-       XGB_Importancia_años_media_indba)
+ggsave("XGB_Importancia_años_media_todas_las_varibles.png",
+       XGB_Importancia_años_media_todas_las_varibles)
 ```
 
 ## Hacer pca y umap para agrupar
@@ -646,7 +646,7 @@ ggsave("XGB_Importancia_años_media_indba.png",
 Datos
 
 ```{r}
-indicadores_gen_varfin_indba <- indicadores_gen %>% 
+indicadores_gen_varfin <- indicadores_gen %>% 
   dplyr::select(departamento_entidad,
                 names(indicadores_clas_rec %>%
                         prep() %>%
@@ -672,15 +672,15 @@ indicadores_gen_varfin_indba <- indicadores_gen %>%
 ### PCA
 
 ```{r}
-pca_xgboost_rec_indba <- recipe(riesgo ~ ., data = indicadores_gen_varfin_indba) %>%
+pca_xgboost_rec <- recipe(riesgo ~ ., data = indicadores_gen_varfin) %>%
   update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
   step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
   step_normalize(all_predictors()) %>%
   step_pca(all_predictors())
 
-pca_xgboost_prep_indba <- prep(pca_xgboost_rec_indba)
+pca_xgboost_prep <- prep(pca_xgboost_rec)
 
-pca_xgboost_prep_indba
+pca_xgboost_prep
 ```
 
 Ver los factores 
@@ -698,7 +698,7 @@ juice(pca_xgboost_prep)
 Gráfico
 
 ```{r}
-XGB_PCA_hospitales_indba <- juice(pca_xgboost_prep_indba) %>%
+XGB_PCA_hospitales_todas_las_variables <- juice(pca_xgboost_prep) %>%
   ggplot(aes(PC1, PC2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
@@ -706,20 +706,20 @@ XGB_PCA_hospitales_indba <- juice(pca_xgboost_prep_indba) %>%
        title = "PCA de hospitales por departamentos") +
   theme(plot.title = element_text(hjust = 0.5))
 
-XGB_PCA_hospitales_indba
+XGB_PCA_hospitales_todas_las_variables
 ```
 
 Guardar imagen
 
 ```{r}
 #Sin leyenda
-ggsave("XGB_PCA_hospitales_indba_sin_leyenda.png",
-       XGB_PCA_hospitales_indba)
+ggsave("XGB_PCA_hospitales_todas_las_variables_sin_leyenda.png",
+       XGB_PCA_hospitales_todas_las_variables)
 
 #Con leyenda
 ggsave(
-  "XGB_PCA_hospitales_indba_con_leyenda.png",
-  juice(pca_xgboost_prep_indba) %>%
+  "XGB_PCA_hospitales_todas_las_variables_con_leyenda.png",
+  juice(pca_xgboost_prep) %>%
   ggplot(aes(PC1, PC2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
@@ -733,15 +733,15 @@ ggsave(
 ### UMAP
 
 ```{r}
-umap_xgboost_rec_indba <- recipe(riesgo ~ ., data = indicadores_gen_varfin_indba) %>%
+umap_xgboost_rec <- recipe(riesgo ~ ., data = indicadores_gen_varfin) %>%
   update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
   step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad), one_hot = TRUE) %>% 
   step_normalize(all_predictors()) %>%
   step_umap(all_predictors())
 
-umap_xgboost_prep_indba <- prep(umap_xgboost_rec_indba)
+umap_xgboost_prep <- prep(umap_xgboost_rec)
 
-umap_xgboost_prep_indba
+umap_xgboost_prep
 ```
 
 Ver los factores 
@@ -759,7 +759,7 @@ juice(umap_xgb_prep)
 Gráfico
 
 ```{r}
-XGB_UMAP_hospitales_indba <- juice(umap_xgboost_prep_indba) %>%
+XGB_UMAP_hospitales_todas_las_variables <- juice(umap_xgboost_prep) %>%
   ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2,  show.legend = FALSE) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
@@ -767,20 +767,20 @@ XGB_UMAP_hospitales_indba <- juice(umap_xgboost_prep_indba) %>%
        title = "UMAP de hospitales por departamentos") +
   theme(plot.title = element_text(hjust = 0.5))
 
-XGB_UMAP_hospitales_indba
+XGB_UMAP_hospitales_todas_las_variables
 ```
 
 Guardar imagenes
 
 ```{r}
 #sin leyenda
-ggsave("XGB_UMAP_indba_sin_leyenda.png",
-       XGB_UMAP_hospitales_indba)
+ggsave("XGB_UMAP_todas_las_variables_sin_leyenda.png",
+       XGB_UMAP_hospitales_todas_las_variables)
 
 #con leyenda
 ggsave(
-  "XGB_UMAP_indba_con_leyenda.png",
-juice(umap_xgboost_prep_indba) %>%
+  "XGB_UMAP_todas_las_variables_con_leyenda.png",
+juice(umap_xgboost_prep) %>%
   ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
   geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
   geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
