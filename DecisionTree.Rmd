@@ -1,0 +1,883 @@
+---
+title: "DecisionTree"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#1. Librerías
+
+```{r}
+#install.packages("ranger")
+#install.packages("tidymodels")
+library(tidymodels)
+library(tidyverse)
+library(knitr)
+#library(readxl)
+library(ggplot2)
+# Para poder aplicar el step_smote que hace un especia de upsampling
+#install.packages("themis")
+library(themis)
+library(data.table)
+library(readr)
+library(vip) #Grafico Importancia de las Variables
+library(recipes) #Manipulación y Análisis (Creación y preproceso de matrices)
+
+#install.packages("embed")
+library(embed) # Recetas adicionales para codificar predictores categóricos
+# Libraries para feature selection
+#install.packages("Boruta")
+library(Boruta) #Algortimo de Selección de Importancia de Variables
+#install.packages("mlbench")
+library(mlbench) #Comparador de Problemas de Machine Learning
+#install.packages("caret")
+library(caret) #Funciones que agilizan el proceso de modelos predictivos.
+
+#install.packages("DALEXtra")
+library(DALEXtra) #para dependenci parcial
+
+library(sparklyr)
+```
+
+#2. Decisión Tree por clasificación
+
+##2.1 Preprocesamiento de los datos
+
+Lectura de los datos
+```{r}
+indicadores_bd_td <- read.csv("Datasets/indicadores_bd_td_con_na.csv")
+indicadores_clas <- indicadores_bd_td
+indicadores_clas$X <- NULL
+head(indicadores_clas)
+```
+
+Columnas que no se tienen en cuenta
+```{r}
+variables_no_necesarias <- c(
+  "nombre_entidad",
+  "cod_entidad",
+  "cod_departamento",
+  "nit_entidad",
+  "municipio_entidad",
+  "depto_mun"
+)
+variables_info_directa <- c(
+  # Indicadores iniciales
+ "indba_ptr_perc_cerrada_num_hos" ,
+ "indba_ptr_perc_cerrada_val_hos",
+ "indba_ptr_perc_direc_val_hos")
+```
+
+
+Eliminar columnas que no son necesarias y crear columna riesgo
+```{r}
+# eliminar las no necesarias
+indicadores_clas <- indicadores_clas %>%
+  dplyr::select(-all_of(variables_no_necesarias), -all_of(variables_info_directa))
+#crear los rangos
+indicadores_clas <- indicadores_clas %>% 
+  mutate(riesgo = case_when(indba_ptr_perc_cdirec_num_hos <= 25 ~ "Bajo o moderado",
+                            indba_ptr_perc_cdirec_num_hos <= 55 ~ "Medio",
+                            TRUE ~ "Alto"))
+```
+
+Calcular los cuartiles y graficar
+
+```{r}
+# Hacer histograma con la distribucion de los cuartiles
+ggplot(indicadores_clas, aes(indba_ptr_perc_cdirec_num_hos)) + 
+  geom_histogram(col = "white", fill = "gray", aes(y = ..density..)) + 
+  geom_density(col = "blue") + 
+  geom_vline(xintercept = 25, color = "green") +
+  geom_vline(xintercept = 55, color = "yellow") +
+  geom_vline(xintercept = 100, color = "red") + 
+  scale_x_continuous(breaks = seq(0,100,10)) +
+  labs(title = "Distribución de porcentaje de contratación directa",
+       x = "Porcentaje de contratación directa",
+       y = "Densidad") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Eliminar el porcentaje de contratacion directa
+```{r}
+indicadores_clas$indba_ptr_perc_cdirec_num_hos <- NULL
+
+indicadores_clas <- indicadores_clas %>% 
+  mutate_if(is.character, factor)
+```
+
+
+## Imputación de los Na
+
+Crear los datos de muestra
+
+```{r}
+# crear una muestra de los datos
+muestra_indicadores_clas <- initial_split(indicadores_clas, strata = riesgo)
+muestra_indicadores_clas <- training(muestra_indicadores_clas)
+head(muestra_indicadores_clas)
+```
+
+Aplicar cambio de Nas en el recipe
+
+```{r}
+indicadores_clas_rec_na <- recipe(riesgo ~ ., muestra_indicadores_clas) %>% 
+  step_impute_median(all_numeric()) %>% 
+  step_nzv(all_predictors()) %>% 
+  prep()
+```
+
+
+Una vez que se ha definido el objeto recipe, con la función prep() se aprenden las transformaciones con los datos de entrenamiento y se aplican a los dos conjuntos con bake().
+
+```{r}
+# Se aplican las transformaciones al conjunto de datos
+indicadores_clas <- bake(indicadores_clas_rec_na, new_data = indicadores_clas)
+#glimpse(datos_train_prep)
+#apply(is.na(indicadores_clas), 2, cantyprop_nas)
+```
+
+## Seleccionar indicadores de indba
+
+```{r}
+indicadores_clas <- indicadores_clas %>% 
+  dplyr::select( c("riesgo", "departamento_entidad", contains("indba")))
+head(indicadores_clas)
+```
+
+Para el caso de los indicadores indba no se aplica BORUTA
+
+## Feature selection Boruta
+
+```{r}
+# Feature Selection
+set.seed(111)
+boruta <- Boruta(riesgo ~ ., data = indicadores_clas, doTrace = 2, maxRuns = 1000)
+print(boruta)
+plot(boruta, las = 2, cex.axis = 0.7)
+plotImpHistory(boruta)
+# Tentative Fix
+bor <- TentativeRoughFix(boruta)
+print(bor)
+attStats(boruta)
+#get variable
+not_rejected <- getNonRejectedFormula(boruta)
+confirmed <- getConfirmedFormula(boruta)
+```
+
+## Modelo
+
+División de los datos en train y test
+
+```{r}
+#indicadores_clas$nombre_entidad <- NULL
+set.seed(458)
+dt_clas_split <- initial_split(indicadores_clas,
+                                        strata = riesgo)
+dt_clas_train <- training(dt_clas_split)
+dt_clas_test <- testing(dt_clas_split)
+```
+
+Definir las tareas de preprocesamiento
+
+- Normalizar las variables numéricas
+-  Crear variables dummyes con las variables categóricas
+
+```{r}
+indicadores_clas_rec <- recipe(not_rejected, data = indicadores_clas) %>% 
+  step_normalize(all_numeric()) %>% 
+  step_other(departamento_entidad) %>% 
+  step_dummy(all_nominal(), -riesgo, one_hot = TRUE) %>% 
+  step_zv(all_numeric()) %>% #creates a specification of a recipe step that will remove variables that contain only a single value.
+ step_smote(riesgo) #Balancear
+
+prop.table(table(indicadores_clas$riesgo))
+names(indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL))
+indicadores_clas_rec %>% prep() %>% bake(new_data =  NULL) %>% count(riesgo)
+
+```
+
+
+## Definir el modelo Decision Tree
+
+Se configura un modelo con los parametros que trae la función por defecto.
+```{r}
+#NO CORRER
+rf_model_clas <-  rand_forest(mtry = tune(),
+                              trees = 1000, #porque este parámeto por lo general no ayuda mucho tunearlo
+                              min_n = tune()) %>% 
+  set_engine("ranger", importance = "impurity") %>% 
+  set_mode("classification") 
+
+######CORRER tree_spec
+dt_model_clas <- decision_tree(
+  cost_complexity = tune(),
+  tree_depth = tune(),
+  min_n = tune()
+) %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+
+dt_model_clas
+
+```
+
+## Definir el workflow
+
+```{r}
+dt_workflow_clasific <- workflow() %>% 
+  add_recipe(indicadores_clas_rec) %>% 
+  add_model(dt_model_clas)
+
+```
+
+## Tunear los parámetros del modelo Decision Tree
+
+Crear un regular_grid
+Conjunto de posibles valores de parámetros para probar en el árbol de decisiones. 
+rf_grid
+```{r}
+tree_grid <- grid_regular(
+  cost_complexity(),
+  tree_depth(),
+  min_n(),
+  levels = 10)
+
+tree_grid
+
+```
+
+validación cruzada
+
+"Prueba de valores de parámetros posibles en todos los conjuntos de datos remuestreados. Uso de métricas no predeterminadas."
+```{r}
+set.seed(234)
+dt_folds <- vfold_cv(dt_clas_train, strata = riesgo)
+dt_folds
+clas_metrics <- metric_set(roc_auc, accuracy)
+
+
+doParallel::registerDoParallel()
+
+set.seed(345)
+
+tree_rs <- dt_workflow_clasific %>% 
+  tune_grid(
+  resamples = dt_folds,
+  grid = tree_grid,
+  metrics = clas_metrics)
+
+tree_rs
+
+
+##NO CORRER
+set.seed(245)
+rf_folds <- vfold_cv(indicadores_clas_train, strata = riesgo)
+clas_metrics <- metric_set(roc_auc, accuracy)
+doParallel::registerDoParallel()
+set.seed(467)
+clas_tune <- rf_workflow_clasific %>% 
+  tune_grid(resamples = rf_folds,
+            grid = rf_grid,
+            metrics = clas_metrics)
+clas_tune
+
+```
+
+## Escoger los mejores parámetros
+
+```{r}
+dt_best_auc <- select_best(tree_rs, metric = "roc_auc")
+dt_best_auc
+```
+
+Finalizar el workflow con las metricas (parámetros) tuneados
+
+```{r}
+dt_final_model_clas <- finalize_model(dt_model_clas, dt_best_auc)
+dt_final_model_clas
+```
+
+Hacer el workflow final, que contiene los parámetros tuneados
+
+```{r}
+final_workflow_clas <- workflow() %>% 
+  add_recipe(indicadores_clas_rec) %>% 
+  add_model(dt_final_model_clas)
+```
+
+
+## Validar el modelo de decision tree
+
+```{r}
+dt_val_clas <- final_workflow_clas %>% 
+  last_fit(indicadores_clas_split)
+dt_val_clas %>% collect_predictions()
+```
+
+## Matriz de confusion
+
+```{r}
+dt_val_clas %>% collect_predictions() %>% conf_mat(riesgo, .pred_class)
+```
+
+Curva roc
+
+```{r}
+DT_Curva_ROC_Boruta <- dt_val_clas %>% 
+  collect_predictions() %>%
+  rename(".pred_Bajo_o_moderado" = ".pred_Bajo o moderado") %>% 
+  roc_curve(riesgo, c(.pred_Alto, .pred_Bajo_o_moderado, .pred_Medio)) %>%
+  autoplot() +
+  labs(title = "Curva ROC por nivel de riesgo",
+       subtitle = "Decision Tree") + 
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+DT_Curva_ROC_Boruta
+```
+
+Guardar la imagen
+
+```{r}
+ggsave("DT_Curva_ROC_Boruta.png", 
+       DT_Curva_ROC_Boruta)
+```
+
+
+Algunas métricas a partir de la matriz de confusión y otra información de la predicción.
+
+- accuracy: indica en que proporción se predicen bien las dos clases.
+- Sensitivity: indica que proporción de las predicciones positivas son correctas, con respecto al total de clases reales positivas.
+- Specificity: indica que proporción de las predicciones negativas son correctas, con respecto al total de clases reales negativas.
+- Positive predictive: indica que proporción de las predicciones positivas son correctas, con respecto al total de predicciones.
+- Negative predictive: indica que proporción de las prediccion negativas son correctas, con respecto al total de predicciones.
+
+```{r}
+# Métricas generales como el auc y accuracy
+dt_val_clas %>% collect_metrics()
+```
+
+```{r}
+#rf_val_clas %>% select(riesgo)
+# Sensibilidad
+dt_val_clas %>% collect_predictions() %>% sensitivity(riesgo, .pred_class)
+```
+
+```{r}
+# Especificidad
+dt_val_clas %>% collect_predictions() %>% specificity(.riesgo, .pred_class)
+```
+
+positiva
+```{r}
+# Predicción positiva
+dt_val_clas %>% collect_predictions() %>% ppv(riesgo, .pred_class)
+```
+
+negativa
+```{r}
+# Predicción negativa
+dt_val_clas %>% collect_predictions() %>% npv(riesgo, .pred_class)
+```
+
+A continuación se presenta el número de obervaciones que fueron correctamente clasificadas y el núermo que fue incorrectamente clasificadas
+
+```{r}
+#Correcto
+dt_val_clas %>% collect_predictions() %>% 
+  mutate(correcto = case_when(.pred_class == riesgo ~ "Yes",
+                              TRUE ~ "No")) %>% 
+  filter(correcto == "Yes") %>%
+  count()
+# incorrecto
+dt_val_clas %>% collect_predictions() %>% 
+  mutate(correcto = case_when(.pred_class == riesgo ~ "Yes",
+                              TRUE ~ "No")) %>% 
+  filter(correcto == "No") %>%
+  count()
+```
+
+## Modelo final del Decision Tree
+
+```{r}
+dt_final_model_clas <- fit(final_workflow_clas, training(dt_clas_split))
+dt_final_model_clas
+```
+
+
+testing
+
+```{r}
+dt_final_model_clas_test <- fit(final_workflow_clas, testing(dt_clas_split))
+dt_final_model_clas_test
+```
+
+
+## variables de mayor importancia
+
+```{r}
+dt_obj_clas <- pull_workflow_fit(dt_final_model_clas)$fit
+dt_importacia_clas <- tibble(variable = names(dt_obj_clas$variable.importance),
+                            importancia = dt_obj_clas$variable.importance)
+importantes_clas <- data.frame(dt_importacia_clas %>% 
+                             mutate(variable = forcats::fct_reorder(variable, importancia),
+                                    variable = as.character(variable)) %>% 
+                            arrange(desc(importancia)))
+importantes_clas
+```
+
+## Accuracy
+
+```{r}
+# Nivel de accuracy
+dt_metric <- dt_val_clas %>% collect_metrics() %>% mutate(model = "Decision Tree")
+dt_metric
+```
+
+Gráfico de las variables más importantes
+
+```{r}
+DT_importancia_Boruta <- importantes_clas %>% 
+#  dplyr::select(-fin) %>% 
+  mutate(variable = forcats::fct_reorder(variable, importancia)) %>% 
+  top_n(20) %>% 
+  ggplot(aes(variable, importancia)) + 
+  geom_bar(stat = "identity") + 
+  labs( title = "Importancia de las variables",
+        x = "Variable",
+        y = "Importancia") +
+  coord_flip() +
+  theme(plot.title = element_text(hjust = 0.5))
+DT_importancia_Boruta
+```
+
+Guardar imagen
+
+```{r}
+ggsave("DT_importancia_Boruta.png",
+       DT_importancia_Boruta)
+```
+
+
+## Gráfico con los importantes por subcategoría
+
+Hacer un gráfico mostrando la suma total de la importancia de las categorías de los indicadores que se tuvieron en cuenta.
+```{r}
+# Total
+DT_Importancia_subcategorias_total_Boruta <- separate(data = importantes_clas,
+         col = variable,
+         into = "inicio",
+         sep = "_") %>% 
+  group_by(inicio) %>% 
+  summarise(valor = sum(importancia)) %>% 
+  ggplot() +
+    geom_bar(aes(x = reorder(inicio, valor), y = valor ) ,stat = "identity") +
+    coord_flip() +
+    labs(x = "Subcategoría de indicador",
+         y = "Importancia",
+         title = "Importancia total de las subcategorías") +
+    theme(plot.title = element_text(hjust = 0.5))
+# Promedio
+DT_Importancia_subcategorias_media_Boruta <- separate(data = importantes_clas,
+         col = variable,
+         into = "inicio",
+         sep = "_") %>% 
+  group_by(inicio) %>% 
+  summarise(valor = mean(importancia)) %>% 
+  ggplot() +
+    geom_bar(aes(x = reorder(inicio, valor), y = valor ) ,stat = "identity") +
+    coord_flip() +
+    labs(x = "Subcategoría de indicador",
+         y = "Importancia",
+         title = "Importancia media de las subcategorías")+
+    theme(plot.title = element_text(hjust = 0.5))
+ 
+DT_Importancia_subcategorias_total_Boruta
+DT_Importancia_subcategorias_media_Boruta
+```
+
+Guadar imagenes
+
+```{r}
+# Total
+ggsave("DT_Importancia_subcategorias_total_Boruta.png",
+       DT_Importancia_subcategorias_total_Boruta)
+# Media
+ggsave("DT_Importancia_subcategorias_media_Boruta.png",
+       DT_Importancia_subcategorias_media_Boruta)
+```
+
+
+Seleccionar si es por hospital, municipio o departamento
+
+```{r}
+#str_extract_all(importantes_clas$variable, "dto, mun, hos", simplify = FALSE, boundary("word"))
+importantes_clas$fin <- str_sub(importantes_clas$variable, -3, -1)
+```
+
+Seleccionar
+
+```{r}
+# Suma total
+DT_Importancia_niveles_total_Boruta <- importantes_clas %>%
+  filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+  group_by(fin) %>% 
+  summarise(total = sum(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = reorder(fin, total), y = total), stat = "identity") +
+      coord_flip() +
+      labs(x = "Nivel del indicador",
+           y = "Importancia",
+           title = "Importancia total de los niveles")+
+      theme(plot.title = element_text(hjust = 0.5))
+# Suma media
+DT_Importancia_niveles_media_Boruta <- importantes_clas %>%
+  filter(fin == "hos" | fin == "mun" | fin == "dto") %>% 
+  group_by(fin) %>% 
+  summarise(total = mean(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = reorder(fin, total), y = total), stat = "identity") +
+      coord_flip() +
+      labs(x = "Nivel del indicador",
+           y = "Importancia",
+           title = "Importancia media de los niveles")+
+      theme(plot.title = element_text(hjust = 0.5))
+DT_Importancia_niveles_total_Boruta
+DT_Importancia_niveles_media_Boruta
+```
+Guardar las imagenes
+
+```{r}
+# Total
+ggsave("RF_Importancia_niveles_total_indba.png",
+       RF_Importancia_niveles_total_indba)
+# Media
+ggsave("RF_Importancia_niveles_media_indba.png",
+       RF_Importancia_niveles_media_indba)
+```
+
+Importancia por cada año del que se tienen datos (si la variable no se dividió por años entonces no se tiene en cuenta)
+
+```{r}
+# importancia total de los años
+RF_Importancia_años_total_indba <- importantes_clas %>% 
+  mutate(variable = gsub("_1_", "un", variable),
+         variable = gsub("IC4K", "ICFK", variable),
+         variable = gsub("_5_", "_cinco_", variable),
+         variable = gsub("ind2", "ind_dos", variable),
+         variable = gsub("_42_", "_cuarentaydos_", variable),
+         variable = gsub("ind10", "ind_diez", variable),
+         variable = gsub("_X0", "", variable),
+         variable = gsub("_X1", "", variable),
+         annio = parse_number(variable),
+         annio = as.character(annio)) %>%
+  mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
+  group_by(annio) %>% 
+  summarise(importancia_annio = sum(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = fct_reorder(annio, importancia_annio), y = importancia_annio), stat = "identity") +
+      coord_flip() +
+      labs(x = "Año del indicador",
+           y = "Importancia",
+           title = "Importancia total de los años")+
+      theme(plot.title = element_text(hjust = 0.5))
+# Importancia media de los años
+RF_Importancia_años_media_indba <- importantes_clas %>% 
+  mutate(variable = gsub("_1_", "un", variable),
+         variable = gsub("IC4K", "ICFK", variable),
+         variable = gsub("_5_", "_cinco_", variable),
+         variable = gsub("ind2", "ind_dos", variable),
+         variable = gsub("_42_", "_cuarentaydos_", variable),
+         variable = gsub("ind10", "ind_diez", variable),
+         variable = gsub("_X0", "", variable),
+         variable = gsub("_X1", "", variable),
+         annio = parse_number(variable),
+         annio = as.character(annio)) %>%
+  mutate_if(is.character, funs(replace_na(., "Sin año"))) %>% 
+  group_by(annio) %>% 
+  summarise(importancia_annio = mean(importancia)) %>% 
+  ggplot() +
+      geom_bar(aes(x = fct_reorder(annio, importancia_annio), y = importancia_annio), stat = "identity") +
+      coord_flip() +
+      labs(x = "Año del indicador",
+           y = "Importancia",
+           title = "Importancia media de los años")+
+      theme(plot.title = element_text(hjust = 0.5))
+RF_Importancia_años_total_indba
+RF_Importancia_años_media_indba
+```
+
+Guardar imagen 
+
+```{r}
+#Total
+ggsave("RF_Importancia_años_total_indba.png",
+       RF_Importancia_años_total_indba)
+#Media
+ggsave("RF_Importancia_años_media_indba.png",
+       RF_Importancia_años_media_indba)
+```
+
+
+## Hacer pca y umap para agrupar
+
+Datos
+
+```{r}
+indicadores_clas_varfin_indba <- indicadores_clas %>%
+  dplyr::select(departamento_entidad,
+                names(indicadores_clas_rec %>%
+                        prep() %>%
+                        bake(new_data =  NULL) %>%
+                        dplyr::select(-c(departamento_entidad_Antioquia,
+                                         departamento_entidad_Boyacá,
+                                         departamento_entidad_Cundinamarca,
+                                         departamento_entidad_Nariño,
+                                         departamento_entidad_Santander,
+                                         departamento_entidad_Tolima,
+                                         departamento_entidad_Valle.del.Cauca,
+                                         departamento_entidad_other)
+                                      )
+                      )
+                ) %>% 
+  merge(indicadores_bd_td %>% dplyr::select(nombre_entidad, indba_ptr_valora_total_hos))# %>% 
+#  dplyr::select(-departamento_entidad)
+#mutate(departamento_entidad = case_when(departamento_entidad != c("Antioquia", "Boyacá", "Cundinamarca", "Nariño", "Santander", "Tolima", "Valle del Cauca") ~ "Other",
+#                                          TRUE ~ as.character(departamento_entidad))) #%>% count(departamento_entidad)
+#sapply(indicadores_clas_varfin, function(x) sum(is.na(x)))
+```
+
+### PCA
+
+```{r}
+pca_randomf_rec_indba <- recipe(riesgo ~ ., data = indicadores_clas_varfin_indba) %>%
+  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
+  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad),one_hot = TRUE) %>% 
+  step_normalize(all_predictors()) %>%
+  step_pca(all_predictors())
+pca_randomf_prep_indba <- prep(pca_randomf_rec_indba)
+pca_randomf_prep_indba
+```
+
+Ver los factores 
+
+```{r}
+tidy(pca_randomf_prep, 3)
+```
+
+Ver los datos
+
+```{r}
+juice(pca_randomf_prep)
+```
+
+Gráfico
+
+```{r}
+RF_PCA_hospitales_indba<- juice(pca_randomf_prep_indba) %>%
+  ggplot(aes(PC1, PC2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2, show.legend = FALSE) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "PCA de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+RF_PCA_hospitales_indba
+```
+
+Guardar imagen
+
+```{r}
+#Sin leyenda
+ggsave("RF_PCA_hospitales_indba_sin_leyenda.png",
+       RF_PCA_hospitales_indba)
+#Con leyenda
+ggsave(
+  "RF_PCA_hospitales_indba_con_leyenda.png",
+  juice(pca_randomf_prep_indba) %>%
+  ggplot(aes(PC1, PC2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "PCA de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+)
+```
+
+
+### UMAP
+
+```{r}
+umap_randomf_rec_indba <- recipe(riesgo ~ ., data = indicadores_clas_varfin_indba) %>%
+  update_role(nombre_entidad, departamento_entidad, new_role = "id") %>%
+  step_dummy(all_nominal(), - c(nombre_entidad, departamento_entidad), one_hot = TRUE) %>% 
+  step_normalize(all_predictors()) %>%
+  step_umap(all_predictors())
+umap_randomf_prep_indba <- prep(umap_randomf_rec_indba)
+umap_randomf_prep_indba
+```
+
+Ver los factores 
+
+```{r}
+tidy(umap_randomf_prep, 3)
+```
+
+Ver los datos
+
+```{r}
+juice(umap_randomf_prep)
+```
+
+Gráfico
+
+```{r}
+RF_UMAP_hospitales_indba <- juice(umap_randomf_prep_indba) %>%
+  ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2,  show.legend = FALSE) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "UMAP de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))
+RF_UMAP_hospitales_indba
+```
+
+Guardar imagenes
+
+```{r}
+#sin leyenda
+ggsave("RF_UMAP_indba_sin_leyenda.png",
+       RF_UMAP_hospitales_indba)
+#con leyenda
+ggsave(
+  "RF_UMAP_indba_con_leyenda.png",
+juice(umap_randomf_prep_indba) %>%
+  ggplot(aes(umap_1, umap_2, label = departamento_entidad)) +
+  geom_point(aes(color = departamento_entidad), alpha = 0.7, size = 2) +
+  geom_text(check_overlap = TRUE, hjust = "inward", family = "IBMPlexSans") +
+  labs(color = NULL,
+       title = "UMAP de hospitales por departamentos") +
+  theme(plot.title = element_text(hjust = 0.5))  
+)
+```
+
+
+Gráfico de dependencia parcial
+
+Se emplea la librearia DALEX. Para usar DALEX con tidymodels, primero se crea un "explainer" y luego se usa ese "explainer" para la tarea que se quiere.
+
+```{r}
+#ver el flujo del workflow
+rf_final_fitted <- rf_val_clas$.workflow[[1]]
+predict(rf_final_fitted, indicadores_clas_test[10:15,])
+#creación del explainer
+rf_explainer <- explain_tidymodels(
+  rf_final_fitted, #workflow fitted
+  data = dplyr::select(indicadores_clas_train, -riesgo), #datos sin incluir la variable de salida del modelo rf
+  y = indicadores_clas_train$riesgo #variable de salida del rf pero como integer
+)
+```
+
+Gráfico por defecto
+
+```{r}
+rf_pdp_depto <- model_profile(rf_explainer,
+                              variables = "departamento_entidad",
+                              N = NULL)
+rf_pdp_finyr_2018 <- model_profile(rf_explainer,
+                              variables = "indba_ptr_prop_contr_finyr_2018_hos",
+                              N = NULL)
+rf_pdp_valora <- model_profile(rf_explainer,
+                              variables = "indba_ptr_valora_total_hos",
+                              N = NULL)
+rf_pdp_otro_tipo_contrato <- model_profile(rf_explainer,
+                              variables = "indba_ptr_perc_OtroTipoContrato_hos",
+                              N = NULL)
+rf_pdp_dif_fechas <- model_profile(rf_explainer,
+                              variables = "indba_ptr_dif_fechas_cargue_firma_2015_hos",
+                              N = NULL)
+rf_pdp_prestacion_servicios <- model_profile(rf_explainer,
+                              variables = "indba_ptr_perc_PrestacionServicios_hos",
+                              N = NULL)
+rf_pdp_inec_vagregado_secundarias_2016 <- model_profile(rf_explainer,
+                              variables = "inec_perc_vagregado_actividades_secundarias_2016_mun",
+                              N = NULL)
+plot(rf_pdp_depto)
+plot(rf_pdp_finyr_2018)
+plot(rf_pdp_valora)
+plot(rf_pdp_otro_tipo_contrato)
+plot(rf_pdp_dif_fechas)
+plot(rf_pdp_prestacion_servicios)
+plot(rf_pdp_inec_vagregado_secundarias_2016)
+```
+
+
+Grafico con ggplot2
+
+```{r}
+#extraer los datos de pdp
+as.tibble(rf_pdp_depto$agr_profiles) %>% 
+  rename("label" = "_label_",
+         "x" = "_x_",
+         "y" = "_yhat_") %>% 
+  mutate(label = str_remove(label, "workflow.")) %>% 
+  ggplot(aes(x = x, y = y, color = label)) +
+  geom_bar(stat = "identity", fill = "white") +
+    labs(x = "Cantidad de contratos a final de año 2018",
+       y = "Probabilidad predicha del riesgo",
+       title = "Dependencia parcial",
+       subtitle = "Predicciones modelo Random Forest balanceado con todas las variables")
+# Deptos
+as.tibble(rf_pdp_depto$agr_profiles) %>% 
+  rename("label" = "_label_",
+         "x" = "_x_",
+         "y" = "_yhat_") %>% 
+  mutate(label = str_remove(label, "workflow.")) %>% 
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  facet_grid(. ~ label) +
+  geom_segment(aes(x = x, xend = x, y = 0, yend = y)) +
+    labs(x = "Departamento",
+       y = "Probabilidad predicha del riesgo",
+       title = "Dependencia parcial",
+       subtitle = "Predicciones modelo Random Forest balanceado y con feature reduction") +
+  theme(axis.text.x = element_text( angle = 90))
+# Fin de año 2018
+as.tibble(rf_pdp_finyr_2018$agr_profiles) %>% 
+  rename("label" = "_label_",
+         "x" = "_x_",
+         "y" = "_yhat_") %>% 
+  mutate(label = str_remove(label, "workflow.")) %>% 
+  ggplot(aes(x = x, y = y, color = label)) +
+  geom_line(size = 1.2, alpha = 0.8) +
+  facet_grid(. ~ label) +
+  labs(x = "Cantidad de contratos a final de año 2018",
+       y = "Probabilidad predicha del riesgo",
+       title = "Dependencia parcial",
+       subtitle = "Predicciones modelo Random Forest balanceado y con feature reduction")
+#valor
+as.tibble(rf_pdp_valora$agr_profiles) %>% 
+  rename("label" = "_label_",
+         "x" = "_x_",
+         "y" = "_yhat_") %>% 
+  mutate(label = str_remove(label, "workflow.")) %>% 
+  ggplot(aes(x = x, y = y, color = label)) +
+  geom_line(size = 1.2, alpha = 0.8) +
+  labs(x = "Valor de los contratos",
+       y = "Probabilidad predicha del riesgo",
+       title = "Dependencia parcial",
+       subtitle = "Predicciones modelo Random Forest balanceado y con feature reduction")
+```
+
+
+Ver si hay Nas
+
+```{r}
+sapply(indicadores_bd_td, function(x) sum(is.na(x)))
+```
+
+
+
